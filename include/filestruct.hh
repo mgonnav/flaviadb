@@ -1,10 +1,18 @@
-#ifndef _FILE_STRUCT
-#define _FILE_STRUCT
+#ifndef _FILE_TOOLS
+#define _FILE_TOOLS
 
-bool dirExists (const char* const path);
-bool fileExists (const char* const path);
-char* getTablePath (const char *tableName);
-char* getRegistersPath (const char *tableName);
-char* getMetadataPath (const char *tableName);
+#include <string>
+//#include <filesystem>
 
-#endif // _FILE_STRUCT
+//namespace fs = std::filesystem;
+namespace ftools {
+  bool dirExists (const char* const path);
+  bool fileExists (const char* const path);
+  char* getTablePath (const char *tableName);
+  char* getRegistersPath (const char *tableName);
+  char* getMetadataPath (const char *tableName);
+  std::string getCurrentTimeAsString();
+  char* getRegPath(const char* current_regs_path);
+}
+
+#endif // _FILE_TOOLS

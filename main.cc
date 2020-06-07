@@ -9,16 +9,20 @@
 #include "Table.hh"
 #include "filestruct.hh"
 #include "flaviadb_paths.hh"
+#include "printutils.hh"
+
+namespace ft = ftools;
+namespace pu = printUtils;
 
 int main()
 {
-  if ( dirExists(FLAVIADB_DIR) )
+  if ( ft::dirExists(FLAVIADB_DIR) )
     if ( mkdir(FLAVIADB_DIR, S_IRWXU) == 0)
     {
       fprintf(stderr, "ERROR: Couldn't create .flaviadb/\n");
       exit(0);
     }
-  if ( !dirExists(FLAVIADB_TEST_DB) )
+  if ( !ft::dirExists(FLAVIADB_TEST_DB) )
     if ( mkdir(FLAVIADB_TEST_DB, S_IRWXU) != 0)
     {
       fprintf(stderr, "ERROR: coudn't create .flaviadb/test/\n");
@@ -46,23 +50,72 @@ int main()
 
         switch ( statement->type() )
         {
-          case 1: // SELECT
+          case hsql::kStmtSelect:
+          {
+            hsql::SelectStatement* select_stmt = (hsql::SelectStatement*) statement;
+
+            if ( select_stmt->fromTable != nullptr )
+            {
+              try {
+                Table* stored_tbl = new Table ( select_stmt->fromTable->name );
+                stored_tbl->show_records( select_stmt );
+                delete stored_tbl;
+              }
+              catch (std::invalid_argument& e) {
+                std::cout << e.what() << "\n";
+              }
+            }
+            else
+              fprintf(stderr, "ERROR: No source table was specified.\n");
+            
             break;
-          case 3: // INSERT
+          }
+          case hsql::kStmtInsert:
+          {
+            hsql::InsertStatement* insert_stmt = (hsql::InsertStatement*) statement; 
+
+            try {
+              Table* stored_tbl = new Table ( insert_stmt->tableName ); 
+              stored_tbl->insert_record(insert_stmt);
+              delete stored_tbl;
+            }
+            catch (std::invalid_argument& e) {
+              std::cout << e.what() << "\n";
+            }
+
             break;
-          case 4: // UPDATE
+          }
+          case hsql::kStmtUpdate:
             break;
-          case 5: // DELETE
+          case hsql::kStmtDelete:
             break;
-          case 6: // CREATE
+          case hsql::kStmtCreate:
           {
             hsql::CreateStatement* create_stmt = (hsql::CreateStatement*) statement;
-            char* tbl_path = getTablePath( create_stmt->tableName );
+            char* table_path = ft::getTablePath( create_stmt->tableName );
 
-            if ( !dirExists(tbl_path) )
+            if ( !ft::dirExists(table_path) )
+            {
               Table* table = new Table(create_stmt->tableName, create_stmt->columns);
+              delete table;
+            }
             else
-              fprintf(stderr, "A table with that name already exists!\n");
+              fprintf(stderr, "Table named %s already exists!\n", create_stmt->tableName);
+
+            break;
+          }
+          case hsql::kStmtShow: // DESCRIBE
+          {
+            hsql::ShowStatement* show_stmt = (hsql::ShowStatement*) statement;
+
+            try {
+              Table* stored_tbl = new Table(show_stmt->name);
+              pu::print_table_desc(stored_tbl);
+              delete stored_tbl;
+            }
+            catch (std::invalid_argument& e) {
+              std::cout << e.what() << "\n";
+            }
 
             break;
           }
@@ -87,3 +140,4 @@ int main()
 
   return 0;
 }
+
