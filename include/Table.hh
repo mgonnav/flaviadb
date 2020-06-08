@@ -18,6 +18,8 @@ struct Table {
 
   bool insert_record( const hsql::InsertStatement* stmt );
   bool show_records( const hsql::SelectStatement* stmt );
+  bool update_records( const hsql::UpdateStatement* stmt );
+  bool delete_records( const hsql::DeleteStatement* stmt );
   // std::vector< Index* >* indexes;
   private:
   bool load_metadata();

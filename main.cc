@@ -29,13 +29,15 @@ int main()
       exit(0);
     }
 
+  pu::print_welcome_message();
+
   std::string query_str;
   while(1)
   {
-    // If we are writing a new query (already finished last query), prompt 'flaviadb> '
+    // If we are writing a new query (already finished last query), prompt 'FlaviaDB> '
     // Else, we are write a multiline query. In that case, we continue the prompt
     // using '-> '
-    char* query = ( query_str.empty() ) ? readline("flaviadb> ") : readline("\t-> ");
+    char* query = ( query_str.empty() ) ? readline("FlaviaDB> ") : readline("\t-> ");
     if ( !query ) break;
 
     query_str += query;
@@ -47,6 +49,7 @@ int main()
       if ( result->isValid() )
       {
         const hsql::SQLStatement* statement = result->getStatement(0);
+        //printStatementInfo(statement);
 
         switch ( statement->type() )
         {
@@ -86,9 +89,35 @@ int main()
             break;
           }
           case hsql::kStmtUpdate:
+          {
+            hsql::UpdateStatement* update_stmt = (hsql::UpdateStatement*) statement; 
+
+            try {
+              Table* stored_tbl = new Table ( update_stmt->table->name ); 
+              stored_tbl->update_records(update_stmt);
+              delete stored_tbl;
+            }
+            catch (std::invalid_argument& e) {
+              std::cout << e.what() << "\n";
+            }
+
             break;
+          }
           case hsql::kStmtDelete:
+          {
+            hsql::DeleteStatement* delete_stmt = (hsql::DeleteStatement*) statement;
+
+            try {
+              Table* stored_tbl = new Table ( delete_stmt->tableName ); 
+              stored_tbl->delete_records(delete_stmt);
+              delete stored_tbl;
+            }
+            catch (std::invalid_argument& e) {
+              std::cout << e.what() << "\n";
+            }
+
             break;
+          }
           case hsql::kStmtCreate:
           {
             hsql::CreateStatement* create_stmt = (hsql::CreateStatement*) statement;
