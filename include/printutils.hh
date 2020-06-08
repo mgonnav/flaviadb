@@ -5,6 +5,8 @@
 #include "Table.hh"
 
 namespace printUtils {
+  void print_welcome_message();
+
   void print_row(const std::vector< std::string >* row,
                  const std::vector< size_t >* fields_width,
                  std::string separator);

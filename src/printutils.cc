@@ -3,6 +3,15 @@
 #include <cstring>
 
 namespace printUtils {
+  void print_welcome_message()
+  {
+    std::cout << "\e[1mWelcome to the FlaviaDB monitor. Commands end with ;.\e[0m\n";
+    std::cout << "\e[1mUse standard SQL statements.\n";
+    std::cout << "\e[1mServer version: 0.0.1-FlaviaDB-0ubuntu0.19.10.1 Ubuntu 19.10\e[0m\n\n";
+
+    std::cout << "\e[1mCopyright (c) 2019, FlaviaDB Corporation.\e[0m\n\n";
+  }
+
   std::string centered(std::string str, size_t width)
   {
     int spaces = 0;
