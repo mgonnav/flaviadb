@@ -31,10 +31,6 @@ namespace ftools {
     struct stat info;
     // 0 -> found | 1 -> not found
     return !stat(path, &info);
-    // if (exists == 0)
-    //   return 1;
-    // else // -1
-    //   return 0;
   }
   
   char* getString( std::vector<const char*> strings )
@@ -79,13 +75,14 @@ namespace ftools {
     return str;
   }
   
-  char* getRegPath(const char* current_regs_path)
+  char* getRegPath(const char* current_regs_path, int salt)
   {
     char* reg_path = new char [80];
   
     strcpy(reg_path, current_regs_path);
     strcat(reg_path, getCurrentTimeAsString().c_str() );
-    strcat(reg_path, ".reg");
+    strcat(reg_path, std::to_string( salt ).c_str() );
+    strcat(reg_path, ".sqlito");
   
     return reg_path;
   }

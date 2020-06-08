@@ -12,7 +12,7 @@ namespace ftools {
   char* getRegistersPath (const char *tableName);
   char* getMetadataPath (const char *tableName);
   std::string getCurrentTimeAsString();
-  char* getRegPath(const char* current_regs_path);
+  char* getRegPath(const char* current_regs_path, int salt=0);
 }
 
 #endif // _FILE_TOOLS
