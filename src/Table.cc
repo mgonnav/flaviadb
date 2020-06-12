@@ -20,14 +20,11 @@ Table::Table(const char* name)
   this->regs_path = ft::getRegistersPath(this->name);
 
   if ( !ft::dirExists( this->path ) )
-  {
-    // fprintf(stderr, "Table %s doesn't exist!", this->name);
-    throw std::invalid_argument("Table doesn't exist");
-  }
+    throw std::invalid_argument("Table " + std::string(this->name) + " doesn't exist.\n");
 
   this->metadata_path = ft::getMetadataPath( this->name );
   if ( !this->load_metadata() )
-    throw std::invalid_argument("Error while loading metadata");
+    throw std::invalid_argument("ERROR while loading metadata for table " + std::string(this->name) + ".\n");
 }
 
 Table::Table(const char* name, std::vector< hsql::ColumnDefinition* >* cols)
@@ -37,15 +34,10 @@ Table::Table(const char* name, std::vector< hsql::ColumnDefinition* >* cols)
   this->regs_path = ft::getRegistersPath(this->name);
 
   if ( mkdir(this->path, S_IRWXU) != 0 )
-  {
-    fprintf(stderr, "ERROR: Couldn't create table\n");
-    return;
-  }
+    throw std::invalid_argument("ERROR: Couldn't create table " + std::string(this->name) + ".\n");
+
   if ( mkdir(this->regs_path, S_IRWXU) != 0 )
-  {
-    fprintf(stderr, "ERROR: Couldn't create registers folder\n");
-    return;
-  }
+    throw std::invalid_argument("ERROR: Couldn't create registers folder for table " + std::string(this->name) + ".\n");
 
   this->columns = cols;
   reg_size = 0;
@@ -68,7 +60,7 @@ Table::Table(const char* name, std::vector< hsql::ColumnDefinition* >* cols)
     wMetadata << col->name << "\t" << (int)col->type.data_type << "\t" << col->type.length << "\t" << col->nullable << "\n";
   wMetadata.close();
 
-  fprintf(stdout, "Table %s was created successfully\n", this->name); 
+  std::cout << "Table " << this->name << " was created successfully.\n";
 }
 
 bool Table::load_metadata()
@@ -132,7 +124,7 @@ bool Table::insert_record( const hsql::InsertStatement* stmt )
 {
   if ( stmt->columns != nullptr )
   {
-    return 1;
+    return 1; // TODO: Insert on specific columns
   }
   else
   {
