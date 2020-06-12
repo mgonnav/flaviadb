@@ -50,7 +50,6 @@ namespace printUtils {
     print_row(&header[1], fields_width, "+");
     for (auto row : *regs_data)
       print_row(&row, fields_width);
-    std::cout << "\n";
   }
 
   void print_select_result(std::vector< hsql::Expr* >* fields, std::vector< std::vector< std::string > >* regs_data, std::vector< size_t >* fields_width)
@@ -71,7 +70,6 @@ namespace printUtils {
     print_row(&header[1], fields_width, "+");
     for (auto& row : *regs_data)
       print_row(&row, fields_width);
-    std::cout << "\n";
   }
 
   char* dataType_to_char(hsql::ColumnType type)
