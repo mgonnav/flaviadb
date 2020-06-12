@@ -46,111 +46,114 @@ int main()
       hsql::SQLParserResult* result = new hsql::SQLParserResult;
       hsql::SQLParser::parse(query_str, result);
 
-      if ( result->isValid() )
+      if ( result->isValid() && result->size() )
       {
-        const hsql::SQLStatement* statement = result->getStatement(0);
-        //printStatementInfo(statement);
-
-        switch ( statement->type() )
+        for (auto i = 0; i < result->size(); i++)
         {
-          case hsql::kStmtSelect:
-          {
-            hsql::SelectStatement* select_stmt = (hsql::SelectStatement*) statement;
+          const hsql::SQLStatement* statement = result->getStatement(i);
+          //printStatementInfo(statement);
 
-            if ( select_stmt->fromTable != nullptr )
+          switch ( statement->type() )
+          {
+            case hsql::kStmtSelect:
             {
+              hsql::SelectStatement* select_stmt = (hsql::SelectStatement*) statement;
+
+              if ( select_stmt->fromTable != nullptr )
+              {
+                try {
+                  Table* stored_tbl = new Table ( select_stmt->fromTable->name );
+                  stored_tbl->show_records( select_stmt );
+                  delete stored_tbl;
+                }
+                catch (std::invalid_argument& e) {
+                  std::cout << e.what() << "\n";
+                }
+              }
+              else
+                fprintf(stderr, "ERROR: No source table was specified.\n");
+              
+              break;
+            }
+            case hsql::kStmtInsert:
+            {
+              hsql::InsertStatement* insert_stmt = (hsql::InsertStatement*) statement; 
+
               try {
-                Table* stored_tbl = new Table ( select_stmt->fromTable->name );
-                stored_tbl->show_records( select_stmt );
+                Table* stored_tbl = new Table ( insert_stmt->tableName ); 
+                stored_tbl->insert_record(insert_stmt);
                 delete stored_tbl;
               }
               catch (std::invalid_argument& e) {
                 std::cout << e.what() << "\n";
               }
-            }
-            else
-              fprintf(stderr, "ERROR: No source table was specified.\n");
-            
-            break;
-          }
-          case hsql::kStmtInsert:
-          {
-            hsql::InsertStatement* insert_stmt = (hsql::InsertStatement*) statement; 
 
-            try {
-              Table* stored_tbl = new Table ( insert_stmt->tableName ); 
-              stored_tbl->insert_record(insert_stmt);
-              delete stored_tbl;
+              break;
             }
-            catch (std::invalid_argument& e) {
-              std::cout << e.what() << "\n";
-            }
-
-            break;
-          }
-          case hsql::kStmtUpdate:
-          {
-            hsql::UpdateStatement* update_stmt = (hsql::UpdateStatement*) statement; 
-
-            try {
-              Table* stored_tbl = new Table ( update_stmt->table->name ); 
-              stored_tbl->update_records(update_stmt);
-              delete stored_tbl;
-            }
-            catch (std::invalid_argument& e) {
-              std::cout << e.what() << "\n";
-            }
-
-            break;
-          }
-          case hsql::kStmtDelete:
-          {
-            hsql::DeleteStatement* delete_stmt = (hsql::DeleteStatement*) statement;
-
-            try {
-              Table* stored_tbl = new Table ( delete_stmt->tableName ); 
-              stored_tbl->delete_records(delete_stmt);
-              delete stored_tbl;
-            }
-            catch (std::invalid_argument& e) {
-              std::cout << e.what() << "\n";
-            }
-
-            break;
-          }
-          case hsql::kStmtCreate:
-          {
-            hsql::CreateStatement* create_stmt = (hsql::CreateStatement*) statement;
-            char* table_path = ft::getTablePath( create_stmt->tableName );
-
-            if ( !ft::dirExists(table_path) )
+            case hsql::kStmtUpdate:
             {
-              Table* table = new Table(create_stmt->tableName, create_stmt->columns);
-              delete table;
-            }
-            else
-              fprintf(stderr, "Table named %s already exists!\n", create_stmt->tableName);
+              hsql::UpdateStatement* update_stmt = (hsql::UpdateStatement*) statement; 
 
-            break;
+              try {
+                Table* stored_tbl = new Table ( update_stmt->table->name ); 
+                stored_tbl->update_records(update_stmt);
+                delete stored_tbl;
+              }
+              catch (std::invalid_argument& e) {
+                std::cout << e.what() << "\n";
+              }
+
+              break;
+            }
+            case hsql::kStmtDelete:
+            {
+              hsql::DeleteStatement* delete_stmt = (hsql::DeleteStatement*) statement;
+
+              try {
+                Table* stored_tbl = new Table ( delete_stmt->tableName ); 
+                stored_tbl->delete_records(delete_stmt);
+                delete stored_tbl;
+              }
+              catch (std::invalid_argument& e) {
+                std::cout << e.what() << "\n";
+              }
+
+              break;
+            }
+            case hsql::kStmtCreate:
+            {
+              hsql::CreateStatement* create_stmt = (hsql::CreateStatement*) statement;
+              char* table_path = ft::getTablePath( create_stmt->tableName );
+
+              if ( !ft::dirExists(table_path) )
+              {
+                Table* table = new Table(create_stmt->tableName, create_stmt->columns);
+                delete table;
+              }
+              else
+                fprintf(stderr, "Table named %s already exists!\n", create_stmt->tableName);
+
+              break;
+            }
+            case hsql::kStmtShow: // DESCRIBE
+            {
+              hsql::ShowStatement* show_stmt = (hsql::ShowStatement*) statement;
+
+              try {
+                Table* stored_tbl = new Table(show_stmt->name);
+                pu::print_table_desc(stored_tbl);
+                delete stored_tbl;
+              }
+              catch (std::invalid_argument& e) {
+                std::cout << e.what() << "\n";
+              }
+
+              break;
+            }
+
+            default:
+              fprintf(stderr, "Query implementation missing!\n");
           }
-          case hsql::kStmtShow: // DESCRIBE
-          {
-            hsql::ShowStatement* show_stmt = (hsql::ShowStatement*) statement;
-
-            try {
-              Table* stored_tbl = new Table(show_stmt->name);
-              pu::print_table_desc(stored_tbl);
-              delete stored_tbl;
-            }
-            catch (std::invalid_argument& e) {
-              std::cout << e.what() << "\n";
-            }
-
-            break;
-          }
-
-          default:
-            fprintf(stderr, "Query implementation missing!\n");
         }
       }
       else
