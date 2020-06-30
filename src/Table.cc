@@ -254,96 +254,69 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::ColumnType* column_type;
-  if (!valid_where(stmt->whereClause, &where_column_pos, &column_type,
-                          this))
+  if (!valid_where(stmt->whereClause, &where_column_pos, &column_type, this))
     return 0;
+
+  std::set<std::string> tmp;
+  std::vector<size_t> fields_width;
+  std::vector<int> requested_columns_order;
 
   if (stmt->selectList->size() == 1 &&
       stmt->selectList->at(0)->type == hsql::kExprStar)
   {
-    // REFACTOR WHOLE THING
-    std::vector<size_t> fields_width(this->columns->size(), 0);
+    delete stmt->selectList->back();
+    stmt->selectList->pop_back();
     for (auto i = 0; i < this->columns->size(); i++)
-      fields_width[i] = strlen(this->columns->at(i)->name) + 2;
-
-    std::vector<std::vector<std::string>> regs_data;
-    // LOAD ALL REGS
-    for (const auto& reg : fs::directory_iterator(this->regs_path))
     {
-      // Load data in file to reg_data
-      std::ifstream data_file(reg.path());
-      std::vector<std::string> reg_data;
-
-      // Load each piece of data into reg_data
-      // and change max field_width if necessary
-      std::string data;
-      for (auto i = 0; i < this->columns->size(); i++)
-      {
-        getline(data_file, data, '\t');
-        reg_data.push_back(data);
-        if (fields_width[i] < data.size() + 2)
-          fields_width[i] = data.size() + 2;
-      }
-
-      // WHERE CLAUSE
-      if (stmt->whereClause != nullptr)
-      {
-        if (compare_where(column_type, reg_data[where_column_pos],
-                          stmt->whereClause))
-          regs_data.push_back(reg_data);
-      }
-      else
-        regs_data.push_back(reg_data);
+      stmt->selectList->push_back(new hsql::Expr(hsql::kExprColumnRef));
+      stmt->selectList->at(i)->name = this->columns->at(i)->name;
+      fields_width.push_back(strlen(this->columns->at(i)->name));
+      requested_columns_order.push_back(i);
     }
-
-    pu::print_select_result(this->columns, &regs_data, &fields_width);
-    std::cout << "Returned " << regs_data.size() << " rows.\n";
-    return 1;
   }
-
-  // SELECT specific columns
-  // CHECK ALL REQUESTED ARE DIFFERENT FROM *,
-  // THERE AREN'T ANY DUPLICATES &
-  // ALL FIELDS EXIST
-  std::set<std::string> tmp;
-  std::vector<size_t> fields_width;
-  std::vector<int> requested_columns_order;
-  for (auto& field : *stmt->selectList)
+  else
   {
-    // If field is *, error
-    if (field->type == hsql::kExprStar)
+    // SELECT specific columns
+    // CHECK ALL REQUESTED ARE DIFFERENT FROM *,
+    // THERE AREN'T ANY DUPLICATES &
+    // ALL FIELDS EXIST
+    for (auto& field : *stmt->selectList)
     {
-      fprintf(stderr, "ERROR: Can't use * along with other fields.\n");
-      return 0;
-    }
-
-    // If field is a duplicate, error
-    tmp.insert(std::string(field->name));
-    if (tmp.size() != (&field - &stmt->selectList->at(0)) + 1)
-    {
-      fprintf(stderr, "ERROR: Duplicate fields detected in query.\n");
-      return 0;
-    }
-
-    // Assert requested field exists. If it does, add needed data
-    // to fields_width & requested_columns_order
-    bool field_exists = 0;
-    for (auto& col : *this->columns)
-    {
-      if (strcmp(field->name, col->name) == 0)    // If strings are equal
+      // If field is *, error
+      if (field->type == hsql::kExprStar)
       {
-        field_exists = 1;
-        fields_width.push_back(strlen(col->name) + 2);
-        requested_columns_order.push_back(&col - &this->columns->at(0));
-        break;
+        fprintf(stderr, "ERROR: Can't use * along with other fields.\n");
+        return 0;
       }
-    }
 
-    if (!field_exists)
-    {
-      fprintf(stderr, "ERROR: Column %s not found in table %s.\n", field->name,
-              this->name);
-      return 0;
+      // If field is a duplicate, error
+      tmp.insert(std::string(field->name));
+      if (tmp.size() != (&field - &stmt->selectList->at(0)) + 1)
+      {
+        fprintf(stderr, "ERROR: Duplicate fields detected in query.\n");
+        return 0;
+      }
+
+      // Assert requested field exists. If it does, add needed data
+      // to fields_width & requested_columns_order
+      bool field_exists = 0;
+      for (auto& col : *this->columns)
+      {
+        if (strcmp(field->name, col->name) == 0)    // If strings are equal
+        {
+          field_exists = 1;
+          fields_width.push_back(strlen(col->name) + 2);
+          requested_columns_order.push_back(&col - &this->columns->at(0));
+          break;
+        }
+      }
+
+      if (!field_exists)
+      {
+        fprintf(stderr, "ERROR: Column %s not found in table %s.\n",
+                field->name, this->name);
+        return 0;
+      }
     }
   }
 
@@ -369,7 +342,10 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
       // When we reach desired column, set flag
       if (i == where_column_pos && stmt->whereClause != nullptr)
         if (!compare_where(column_type, data, stmt->whereClause))
+        {
           satisfies_where = 0;
+          break;
+        }
 
       // If field was requested, add it to reg_data
       if (field_pos != requested_columns_order.end())
@@ -379,7 +355,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
         reg_data[current_req_field] = data;
         // If data witdth is larger than current field_width,
         // make it the new field_width
-        if (fields_width[current_req_field] <= data.size())
+        if (fields_width[current_req_field] < data.size() + 2)
           fields_width[current_req_field] = data.size() + 2;
       }
     }
@@ -398,9 +374,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
   int where_column_pos;
   hsql::ColumnType* column_type;
   if (!valid_where(stmt->where, &where_column_pos, &column_type, this))
-  {
     return 0;
-  }
 
   // Check UPDATE SET column exists
   bool column_exists = 0;
@@ -442,7 +416,6 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     std::vector<std::string> reg_data;
 
     // Load each piece of data into reg_data
-    // and change max field_width if necessary
     std::string data;
     for (auto i = 0; i < this->columns->size(); i++)
     {
@@ -451,21 +424,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     }
 
     // WHERE CLAUSE
-    if (stmt->where != nullptr)
-    {
-      if (compare_where(column_type, reg_data[where_column_pos], stmt->where))
-      {
-        regs_to_update_path.push_back(reg.path());
-        if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
-          reg_data[update_column_pos] = stmt->updates->at(0)->value->name;
-        else
-          reg_data[update_column_pos] =
-              std::to_string(stmt->updates->at(0)->value->ival);
-
-        regs_data.push_back(reg_data);
-      }
-    }
-    else
+    if (compare_where(column_type, reg_data[where_column_pos], stmt->where))
     {
       regs_to_update_path.push_back(reg.path());
       if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
@@ -527,12 +486,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
     }
 
     // WHERE CLAUSE
-    if (stmt->expr != nullptr)
-    {
-      if (compare_where(column_type, reg_data[where_column_pos], stmt->expr))
-        regs_to_delete_path.push_back(reg.path());
-    }
-    else
+    if (compare_where(column_type, reg_data[where_column_pos], stmt->expr))
       regs_to_delete_path.push_back(reg.path());
   }
 
