@@ -281,7 +281,8 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
       {
         getline(data_file, data, '\t');
         reg_data.push_back(data);
-        if (fields_width[i] <= data.size()) fields_width[i] = data.size() + 2;
+        if (fields_width[i] < data.size() + 2)
+          fields_width[i] = data.size() + 2;
       }
 
       // WHERE CLAUSE
