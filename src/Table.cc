@@ -357,7 +357,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
 
     // Load piece of data
     std::string data;
-    bool satisfies_where = 0;
+    bool satisfies_where = 1;
     for (auto i = 0; i < this->columns->size(); i++)
     {
       getline(data_file, data, '\t');
@@ -368,8 +368,8 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
 
       // When we reach desired column, set flag
       if (i == where_column_pos && stmt->whereClause != nullptr)
-        if (compare_where(column_type, data, stmt->whereClause))
-          satisfies_where = 1;
+        if (!compare_where(column_type, data, stmt->whereClause))
+          satisfies_where = 0;
 
       // If field was requested, add it to reg_data
       if (field_pos != requested_columns_order.end())
