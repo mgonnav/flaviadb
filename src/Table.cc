@@ -1,5 +1,6 @@
 #include "Table.hh"
 #include "filestruct.hh"
+#include "where.hh"
 #include <algorithm>    // unique
 #include <cstring>
 #include <ctime>    // strptime
@@ -248,147 +249,12 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
 namespace fs = std::filesystem;
 namespace pu = printUtils;
 
-int compare_date(const char* data, const char* expression)
-{
-  struct tm data_time = {0};
-  struct tm expression_time = {0};
-  strptime(data, DATE_FORMAT, &data_time);
-  strptime(expression, DATE_FORMAT, &expression_time);
-
-  double diff = difftime(mktime(&data_time), mktime(&expression_time));
-  if (diff < 0) return -1;
-  if (diff == 0) return 0;
-  return 1;
-}
-
-bool compare_helper(int comparison_result, hsql::OperatorType opType)
-{
-  switch (opType)
-  {
-  case hsql::kOpEquals:
-    return comparison_result == 0;
-  case hsql::kOpNotEquals:
-    return comparison_result != 0;
-  case hsql::kOpLess:
-    return comparison_result == -1;
-  case hsql::kOpLessEq:
-    return comparison_result == -1 || comparison_result == 0;
-  case hsql::kOpGreater:
-    return comparison_result == 1;
-  case hsql::kOpGreaterEq:
-    return comparison_result == 0 || comparison_result == 1;
-  default:
-    return 0;
-  }
-}
-
-bool compare_where(hsql::ColumnType* column_type, std::string data,
-                   const hsql::Expr* where_clause)
-{
-  int comparison;
-  switch (column_type->data_type)
-  {
-  case hsql::DataType::CHAR:
-    comparison = strcmp(data.c_str(), where_clause->expr2->name);
-    break;
-  case hsql::DataType::DATE:
-    comparison = compare_date(data.c_str(), where_clause->expr2->name);
-    break;
-  case hsql::DataType::INT:
-    comparison = atoi(data.c_str()) - where_clause->expr2->ival;
-    if (comparison < 0)
-      comparison = -1;
-    else if (comparison > 0)
-      comparison = 1;
-    break;
-  default:
-    comparison = 0;
-    break;
-  }
-  return compare_helper(comparison, where_clause->opType);
-}
-
-bool valid_where_clause(const hsql::Expr* where_clause, int* where_column_pos,
-                        hsql::ColumnType** column_type, const Table* table)
-{
-  // Check WHERE clause correctness
-  if (where_clause != nullptr)
-  {
-    // Check left hand expression is a ColumnRef
-    if (where_clause->expr->type != hsql::kExprColumnRef)
-    {
-      fprintf(stderr, "ERROR: Left hand expression of WHERE clause must be a "
-                      "column reference.\n");
-      return 0;
-    }
-
-    // Check if operator is =, !=, <, <=, >, >=
-    if (where_clause->opType < 10 && where_clause->opType > 15)
-    {
-      fprintf(stderr, "ERROR: Unknown operator.\n");
-      return 0;
-    }
-
-    // Check right hand expression is a string or int literal
-    if (where_clause->expr2->type != hsql::kExprLiteralInt &&
-        where_clause->expr2->type != hsql::kExprLiteralString)
-    {
-      fprintf(stderr, "ERROR: Unknown right hand expression.\n");
-      return 0;
-    }
-
-    // Check if column to be tested exists
-    bool field_exists = 0;
-    for (auto& col : *table->columns)
-      if (strcmp(where_clause->expr->name, col->name) == 0)
-      {
-        field_exists = 1;
-        *column_type = &col->type;
-        *where_column_pos = &col - &table->columns->at(0);
-        break;
-      }
-
-    if (!field_exists)
-    {
-      fprintf(stderr, "ERROR: Column %s doesn't exist in table %s.\n",
-              where_clause->expr->name, table->name);
-      return 0;
-    }
-
-    // Check column data type and literal's data type match
-    if ((where_clause->expr2->type == hsql::kExprLiteralString &&
-         (*column_type)->data_type != hsql::DataType::CHAR &&
-         (*column_type)->data_type != hsql::DataType::DATE) ||
-        (where_clause->expr2->type == hsql::kExprLiteralInt &&
-         (*column_type)->data_type != hsql::DataType::INT))
-    {
-      fprintf(stderr, "ERROR: Column and expression's types don't match.\n");
-      return 0;
-    }
-
-    if ((*column_type)->data_type == hsql::DataType::DATE)
-    {
-      struct tm tm = {0};
-      if (!strptime(where_clause->expr2->name, DATE_FORMAT, &tm))
-      {
-        fprintf(stderr,
-                "ERROR: Right hand expression isn't a correctly formatted "
-                "date. Please use %s.\n",
-                DATE_FORMAT);
-        return 0;
-      }
-    }
-  }
-
-  return 1;
-}
-
 bool Table::show_records(const hsql::SelectStatement* stmt)
 {
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::ColumnType* column_type;
-  if (!valid_where_clause(stmt->whereClause, &where_column_pos, &column_type,
+  if (!valid_where(stmt->whereClause, &where_column_pos, &column_type,
                           this))
     return 0;
 
@@ -530,7 +396,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::ColumnType* column_type;
-  if (!valid_where_clause(stmt->where, &where_column_pos, &column_type, this))
+  if (!valid_where(stmt->where, &where_column_pos, &column_type, this))
   {
     return 0;
   }
@@ -637,7 +503,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::ColumnType* column_type;
-  if (!valid_where_clause(stmt->expr, &where_column_pos, &column_type, this))
+  if (!valid_where(stmt->expr, &where_column_pos, &column_type, this))
   {
     return 0;
   }

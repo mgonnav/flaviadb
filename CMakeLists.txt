@@ -9,5 +9,6 @@ include_directories(/usr/local/include/hsql)
 include_directories(/usr/include/readline)
 include_directories(include)
 
-add_executable(flaviadb main.cc src/Table.cc src/filestruct.cc src/printutils.cc)
+add_executable(flaviadb main.cc src/Table.cc src/filestruct.cc src/printutils.cc
+               src/where.cc)
 target_link_libraries(flaviadb readline sqlparser)
