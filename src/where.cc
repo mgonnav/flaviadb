@@ -148,4 +148,6 @@ bool valid_where(const hsql::Expr* where, int* where_column_pos,
       return 0;
     }
   }
+
+  return 1;
 }
