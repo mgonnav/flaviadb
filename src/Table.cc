@@ -270,7 +270,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
     {
       stmt->selectList->push_back(new hsql::Expr(hsql::kExprColumnRef));
       stmt->selectList->at(i)->name = this->columns->at(i)->name;
-      fields_width.push_back(strlen(this->columns->at(i)->name));
+      fields_width.push_back(strlen(this->columns->at(i)->name) + 2);
       requested_columns_order.push_back(i);
     }
   }
