@@ -71,6 +71,15 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
   std::cout << "Table " << this->name << " was created successfully.\n";
 }
 
+Table::~Table()
+{
+  delete this->path;
+  delete this->regs_path;
+  delete this->metadata_path;
+  delete this->name;
+  delete this->columns;
+}
+
 bool Table::load_metadata()
 {
   std::ifstream rMetadata(this->metadata_path);
@@ -494,5 +503,18 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
     remove(path.c_str());
 
   std::cout << "Deleted " << regs_to_delete_path.size() << " rows.\n";
+  return 1;
+}
+
+bool Table::drop_table()
+{
+  std::error_code errorCode;
+  if ( !fs::remove_all(this->path, errorCode) )
+  {
+    std::cout << errorCode.message() << "\n";
+    return 0;
+  }
+
+  std::cout << "Dropped table " << this->name << ".\n";
   return 1;
 }

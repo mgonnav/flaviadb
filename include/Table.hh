@@ -9,6 +9,7 @@ struct Table
 {
   Table(const char* name);
   Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols);
+  ~Table();
 
   const char* path;
   const char* regs_path;
@@ -21,6 +22,7 @@ struct Table
   bool show_records(const hsql::SelectStatement* stmt);
   bool update_records(const hsql::UpdateStatement* stmt);
   bool delete_records(const hsql::DeleteStatement* stmt);
+  bool drop_table();
   // std::vector< Index* >* indexes;
 private:
   bool load_metadata();

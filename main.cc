@@ -152,6 +152,23 @@ int main()
 
             break;
           }
+          case hsql::kStmtDrop:
+          {
+            hsql::DropStatement* drop_stmt = (hsql::DropStatement*)statement;
+
+            try
+            {
+              Table* stored_tbl = new Table(drop_stmt->name);
+              stored_tbl->drop_table();
+              delete stored_tbl;
+            }
+            catch (std::invalid_argument& e)
+            {
+              std::cout << e.what() << "\n";
+            }
+
+            break;
+          }
           case hsql::kStmtShow:    // DESCRIBE
           {
             hsql::ShowStatement* show_stmt = (hsql::ShowStatement*)statement;
