@@ -68,6 +68,10 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
               << col->type.length << "\t" << col->nullable << "\n";
   wMetadata.close();
 
+  std::ofstream wCount( ft::getRegCountPath(this->name) );
+  wCount << 0;   // 0 regs when table is created
+  wCount.close();
+
   std::cout << "Table " << this->name << " was created successfully.\n";
 }
 
@@ -167,7 +171,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
     }
 
     // Create filename
-    char* reg_file = ft::getRegPath(this->regs_path);
+    char* reg_file = ft::getNewRegPath(this->name);
 
     std::ofstream new_reg(reg_file);
     for (size_t i = 0; i < stmt->values->size(); i++)
@@ -449,12 +453,11 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
   for (const auto& path : regs_to_update_path)
     remove(path.c_str());
 
-  int x = 0;
   // Reinsert regs with updated values
   for (const auto& reg : regs_data)
   {
     // Create filename
-    char* reg_file = ft::getRegPath(this->regs_path, x++);
+    char* reg_file = ft::getNewRegPath(this->name);
 
     std::ofstream updated_reg(reg_file);
     for (const auto& data : reg)

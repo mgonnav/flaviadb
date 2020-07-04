@@ -62,6 +62,11 @@ char* getMetadataPath(const char* tableName)
   return getString({FLAVIADB_TEST_DB, tableName, "/metadata.dat"});
 }
 
+char* getRegCountPath(const char* table_name)
+{
+  return getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+}
+
 std::string getCurrentTimeAsString()
 {
   time_t rawtime;
@@ -76,13 +81,25 @@ std::string getCurrentTimeAsString()
   return str;
 }
 
-char* getRegPath(const char* current_regs_path, int salt)
+char* getNewRegPath(const char* table_name)
 {
   char* reg_path = new char[80];
+  std::string reg_count_file_path = getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+  std::ifstream rCount( reg_count_file_path );
+  if (!rCount.is_open())
+  {
+    fprintf(stderr, "ERROR: Couldn't read %s.\n", reg_count_file_path.c_str());
+    return nullptr;
+  }
+  
+  int count;
+  std::string data;
+  getline(rCount, data);
+  rCount.close();
+  count = stoi(data);
 
-  strcpy(reg_path, current_regs_path);
-  strcat(reg_path, getCurrentTimeAsString().c_str());
-  strcat(reg_path, std::to_string(salt).c_str());
+  strcpy(reg_path, getRegistersPath(table_name));
+  strcat(reg_path, std::to_string(count).c_str());
   strcat(reg_path, ".sqlito");
 
   return reg_path;
