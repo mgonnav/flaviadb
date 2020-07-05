@@ -102,6 +102,41 @@ char* dataType_to_char(hsql::ColumnType type)
   return type_char;
 }
 
+void print_tables_list(std::vector<std::string>& tables)
+{
+  std::vector<size_t> fields_width;
+  fields_width.push_back(7);    // Size of "Table" + 2
+
+  // Find max width for Name column
+  for (const auto& table_name : tables)
+    if (fields_width[0] <= table_name.size())
+      fields_width[0] = table_name.size()+ 2;
+
+  // header[0] has 'Name'
+  std::vector<std::vector<std::string>> header;
+  header.push_back(std::vector<std::string>());
+  header[0].push_back("Table");
+
+  // header[1] has the second row with '-' times the width of the field
+  header.push_back(std::vector<std::string>());
+  for (size_t i = 0; i < header[0].size(); i++)
+    header[1].push_back(std::string(fields_width[i], '-'));
+  std::cout << "\n";
+  // TODO: Refactor header printing
+
+  print_row(&header[0], &fields_width);
+  print_row(&header[1], &fields_width, "+");
+
+  std::vector<std::string> table;
+  for (const auto& table_name : tables)
+  {
+    table.push_back(table_name);
+    print_row(&table, &fields_width);
+    table.pop_back();
+  }
+  std::cout << "\n";
+}
+
 void print_table_desc(Table* table)
 {
   std::vector<size_t> fields_width;
@@ -126,7 +161,7 @@ void print_table_desc(Table* table)
 
   // header[1] has the second row with '-' times the width of the field
   header.push_back(std::vector<std::string>());
-  for (size_t i = 0; i < 2; i++)
+  for (size_t i = 0; i < header[0].size(); i++)
     header[1].push_back(std::string(fields_width[i], '-'));
 
   std::cout << "\n";

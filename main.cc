@@ -5,12 +5,14 @@
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <sys/stat.h>    // stat, mkdir
+#include <filesystem>
 
 #include "Table.hh"
 #include "filestruct.hh"
 #include "flaviadb_paths.hh"
 #include "printutils.hh"
 
+namespace fs = std::filesystem;
 namespace ft = ftools;
 namespace pu = printUtils;
 
@@ -173,15 +175,25 @@ int main()
           {
             hsql::ShowStatement* show_stmt = (hsql::ShowStatement*)statement;
 
-            try
+            if (show_stmt->type == hsql::ShowType::kShowTables)
             {
-              Table* stored_tbl = new Table(show_stmt->name);
-              pu::print_table_desc(stored_tbl);
-              delete stored_tbl;
+              std::vector<std::string> tables;
+              for (const auto& table : fs::directory_iterator(FLAVIADB_TEST_DB))
+                tables.push_back(table.path().filename());
+              pu::print_tables_list(tables);
             }
-            catch (std::invalid_argument& e)
+            else
             {
-              std::cout << e.what() << "\n";
+              try
+              {
+                Table* stored_tbl = new Table(show_stmt->name);
+                pu::print_table_desc(stored_tbl);
+                delete stored_tbl;
+              }
+              catch (std::invalid_argument& e)
+              {
+                std::cout << e.what() << "\n";
+              }
             }
 
             break;

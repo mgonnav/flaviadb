@@ -19,5 +19,7 @@ void print_select_result(std::vector<hsql::Expr*>* fields,
                          std::vector<std::vector<std::string>>* regs_data,
                          std::vector<size_t>* fields_width);
 
+void print_tables_list(std::vector<std::string>& tables);
+
 void print_table_desc(Table* table);
 }    // namespace printUtils
