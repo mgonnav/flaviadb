@@ -84,14 +84,15 @@ std::string getCurrentTimeAsString()
 char* getNewRegPath(const char* table_name)
 {
   char* reg_path = new char[80];
-  std::string reg_count_file_path = getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
-  std::ifstream rCount( reg_count_file_path );
+  std::string reg_count_file_path =
+      getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+  std::ifstream rCount(reg_count_file_path);
   if (!rCount.is_open())
   {
     fprintf(stderr, "ERROR: Couldn't read %s.\n", reg_count_file_path.c_str());
     return nullptr;
   }
-  
+
   int count;
   std::string data;
   getline(rCount, data);
@@ -101,6 +102,9 @@ char* getNewRegPath(const char* table_name)
   strcpy(reg_path, getRegistersPath(table_name));
   strcat(reg_path, std::to_string(count).c_str());
   strcat(reg_path, ".sqlito");
+
+  std::ofstream wCount(reg_count_file_path);
+  wCount << ++count;
 
   return reg_path;
 }

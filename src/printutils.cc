@@ -19,7 +19,8 @@ std::string centered(std::string str, size_t width)
 {
   int spaces = 0;
   spaces = (width - str.size()) / 2;
-  if (spaces > 0) str = std::string(spaces, ' ') + str;
+  if (spaces > 0)
+    str = std::string(spaces, ' ') + str;
   return str;
 }
 
@@ -110,7 +111,7 @@ void print_tables_list(std::vector<std::string>& tables)
   // Find max width for Name column
   for (const auto& table_name : tables)
     if (fields_width[0] <= table_name.size())
-      fields_width[0] = table_name.size()+ 2;
+      fields_width[0] = table_name.size() + 2;
 
   // header[0] has 'Name'
   std::vector<std::vector<std::string>> header;

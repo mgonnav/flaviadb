@@ -12,8 +12,10 @@ int compare_date(const char* data, const char* expr)
 
   double diff = difftime(mktime(&data_time), mktime(&expr_time));
 
-  if (diff < 0) return -1;
-  if (diff == 0) return 0;
+  if (diff < 0)
+    return -1;
+  if (diff == 0)
+    return 0;
   return 1;
 }
 
@@ -34,13 +36,14 @@ bool compare_helper(short int comparison_result, hsql::OperatorType opType)
   case hsql::kOpGreaterEq:
     return comparison_result == 0 || comparison_result == 1;
   default:
-    return 0; }
+    return 0;
+  }
 }
 
 bool compare_where(hsql::ColumnType* column_type, std::string data,
                    const hsql::Expr* where)
 {
-  if ( where == nullptr )
+  if (where == nullptr)
     return 1;
 
   short int comparison;

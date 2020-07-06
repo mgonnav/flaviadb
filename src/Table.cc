@@ -68,8 +68,8 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
               << col->type.length << "\t" << col->nullable << "\n";
   wMetadata.close();
 
-  std::ofstream wCount( ft::getRegCountPath(this->name) );
-  wCount << 0;   // 0 regs when table is created
+  std::ofstream wCount(ft::getRegCountPath(this->name));
+  wCount << 0;    // 0 regs when table is created
   wCount.close();
 
   std::cout << "Table " << this->name << " was created successfully.\n";
@@ -373,7 +373,8 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
       }
     }
 
-    if (satisfies_where) regs_data.push_back(reg_data);
+    if (satisfies_where)
+      regs_data.push_back(reg_data);
   }
 
   pu::print_select_result(stmt->selectList, &regs_data, &fields_width);
@@ -512,7 +513,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
 bool Table::drop_table()
 {
   std::error_code errorCode;
-  if ( !fs::remove_all(this->path, errorCode) )
+  if (!fs::remove_all(this->path, errorCode))
   {
     std::cout << errorCode.message() << "\n";
     return 0;

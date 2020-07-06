@@ -1,8 +1,8 @@
 #ifndef _WHERE
 #define _WHERE
 
-#include "hsql/SQLParser.h"
 #include "Table.hh"
+#include "hsql/SQLParser.h"
 #include <cstring>
 
 int compare_date(const char* data, const char* expr);
@@ -12,4 +12,4 @@ bool compare_where(hsql::ColumnType* column_type, std::string data,
 bool valid_where(const hsql::Expr* where, int* column_pos,
                  hsql::ColumnType** column_type, const Table* table);
 
-#endif // _WHERE
+#endif    // _WHERE

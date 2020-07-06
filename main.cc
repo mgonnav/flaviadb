@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <fstream>                  // ifstream, ofstream
 #include <hsql/SQLParser.h>         // Include SQL Parser
 #include <hsql/util/sqlhelper.h>    // Contains printing utilities
@@ -5,7 +6,6 @@
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <sys/stat.h>    // stat, mkdir
-#include <filesystem>
 
 #include "Table.hh"
 #include "filestruct.hh"
@@ -42,7 +42,8 @@ int main()
     char* query =
         (query_str.empty()) ? readline("FlaviaDB> ") : readline("\t-> ");
 
-    if (!query) break;
+    if (!query)
+      break;
 
     query_str += query;
     if (*query && query_str.back() == ';')
