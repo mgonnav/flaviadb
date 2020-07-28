@@ -57,6 +57,11 @@ char* getRegistersPath(const char* tableName)
   return getString({FLAVIADB_TEST_DB, tableName, "/registers/"});
 }
 
+char* getIndexesPath(const char* tableName)
+{
+  return getString({FLAVIADB_TEST_DB, tableName, "/indexes/"});
+}
+
 char* getMetadataPath(const char* tableName)
 {
   return getString({FLAVIADB_TEST_DB, tableName, "/metadata.dat"});

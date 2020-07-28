@@ -13,6 +13,8 @@ char* getTablePath(const char* tableName);
 
 char* getRegistersPath(const char* tableName);
 
+char* getIndexesPath(const char* tableName);
+
 char* getMetadataPath(const char* tableName);
 
 char* getRegCountPath(const char* table_name);
