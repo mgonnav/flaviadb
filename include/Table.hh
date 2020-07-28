@@ -2,8 +2,22 @@
 #define TABLE_HH
 
 #include "Index.hh"
+#include "Table.hh"
+#include "filestruct.hh"
+#include <algorithm>    // unique
+#include <cstring>
+#include <ctime>    // strptime
+#include <filesystem>
+#include <fstream>
 #include <hsql/SQLParser.h>
+#include <iomanip>    // Better print formatting
+#include <iostream>
+#include <map>
+#include <set>
+#include <sys/stat.h>
 #include <vector>
+
+#define DATE_FORMAT "%d-%m-%Y"
 
 struct Table
 {

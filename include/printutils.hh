@@ -1,4 +1,5 @@
 #include "Table.hh"
+#include <cstring>
 #include <hsql/SQLParser.h>
 #include <iomanip>
 #include <iostream>

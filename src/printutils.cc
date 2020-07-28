@@ -1,6 +1,4 @@
 #include "printutils.hh"
-#include <cstring>
-#include <hsql/SQLParser.h>
 
 namespace printUtils
 {

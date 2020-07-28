@@ -1,7 +1,5 @@
 #include "where.hh"
 
-#define DATE_FORMAT "%d-%m-%Y"
-
 int compare_date(const char* data, const char* expr)
 {
   struct tm data_time = {0};
