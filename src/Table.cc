@@ -1,24 +1,30 @@
 #include "Table.hh"
 #include "filestruct.hh"
+#include "printutils.hh"
 #include "where.hh"
 #include <algorithm>    // unique
 #include <cstring>
 #include <ctime>    // strptime
+#include <filesystem>
 #include <fstream>
 #include <hsql/SQLParser.h>
 #include <iomanip>    // Better print formatting
 #include <iostream>
+#include <map>
 #include <set>
 #include <sys/stat.h>
 
 #define DATE_FORMAT "%d-%m-%Y"
 namespace ft = ftools;
+namespace fs = std::filesystem;
+namespace pu = printUtils;
 
 Table::Table(const char* name)
 {
   this->name = name;
   this->path = ft::getTablePath(this->name);
   this->regs_path = ft::getRegistersPath(this->name);
+  this->indexes_path = ft::getIndexesPath(this->name);
 
   if (!ft::dirExists(this->path))
     throw std::invalid_argument("Table " + std::string(this->name) +
@@ -28,6 +34,14 @@ Table::Table(const char* name)
   if (!this->load_metadata())
     throw std::invalid_argument("ERROR while loading metadata for table " +
                                 std::string(this->name) + ".\n");
+
+  this->indexes = new std::vector<Index*>;
+  for (const auto& reg : fs::directory_iterator(this->indexes_path))
+  {
+    char* idx_name = new char[strlen(reg.path().filename().c_str())];
+    strcpy(idx_name, reg.path().filename().c_str());
+    indexes->push_back(new Index(idx_name));
+  }
 }
 
 Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
@@ -35,6 +49,8 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
   this->name = name;
   this->path = ft::getTablePath(this->name);
   this->regs_path = ft::getRegistersPath(this->name);
+  this->indexes_path = ft::getIndexesPath(this->name);
+  this->indexes = new std::vector<Index*>;
 
   if (mkdir(this->path, S_IRWXU) != 0)
     throw std::invalid_argument("ERROR: Couldn't create table " +
@@ -43,6 +59,11 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
   if (mkdir(this->regs_path, S_IRWXU) != 0)
     throw std::invalid_argument(
         "ERROR: Couldn't create registers folder for table " +
+        std::string(this->name) + ".\n");
+
+  if (mkdir(this->indexes_path, S_IRWXU) != 0)
+    throw std::invalid_argument(
+        "ERROR: Couldn't create indexes folder for table " +
         std::string(this->name) + ".\n");
 
   this->columns = cols;
@@ -77,11 +98,13 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
 
 Table::~Table()
 {
+  delete this->name;
   delete this->path;
   delete this->regs_path;
   delete this->metadata_path;
-  delete this->name;
+  delete this->indexes_path;
   delete this->columns;
+  delete this->indexes;
 }
 
 bool Table::load_metadata()
@@ -106,10 +129,10 @@ bool Table::load_metadata()
   }
   // Read total # of columns in table
   getline(rMetadata, data, '\t');
-  int total_cols = atoi(data.c_str());
+  int total_cols = stoi(data);
   // Read reg_size
   getline(rMetadata, data, '\n');
-  this->reg_size = atoi(data.c_str());
+  this->reg_size = stoi(data);
   this->columns = new std::vector<hsql::ColumnDefinition*>;
   while (total_cols--)
   {
@@ -121,11 +144,11 @@ bool Table::load_metadata()
 
     // Read column type
     getline(rMetadata, data, '\t');
-    int col_enum = atoi(data.c_str());
+    int col_enum = stoi(data);
 
     // Read column length, e.g., CHAR(20) where 20 is the length
     getline(rMetadata, data, '\t');
-    int col_length = atoi(data.c_str());
+    int col_length = stoi(data);
 
     // Create ColumnType object from previous data
     hsql::ColumnType col_type((hsql::DataType)col_enum, col_length);
@@ -138,13 +161,6 @@ bool Table::load_metadata()
     this->columns->push_back(
         new hsql::ColumnDefinition(col_name, col_type, col_nullable));
   }
-
-  // std::cout << "Insert Table: \n";
-  // for (int i = 0; i < this->columns->size(); i++)
-  //  std::cout << "Col #" << i << " " << this->columns->at(i)->name << " " <<
-  //  this->columns->at(i)->type.data_type << " " <<
-  //  this->columns->at(i)->type.length << " "<< this->columns->at(i)->nullable
-  //  << "\n";
 
   return 1;
 }
@@ -256,11 +272,6 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
   std::cout << "Inserted 1 row.\n";
   return 1;
 }
-
-#include "printutils.hh"
-#include <filesystem>
-namespace fs = std::filesystem;
-namespace pu = printUtils;
 
 bool Table::show_records(const hsql::SelectStatement* stmt)
 {
@@ -458,7 +469,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
   for (const auto& reg : regs_data)
   {
     // Create filename
-    char* reg_file = ft::getNewRegPath(this->name);
+    const char* reg_file = regs_to_update_path[&reg - &regs_data[0]].c_str();
 
     std::ofstream updated_reg(reg_file);
     for (const auto& data : reg)
@@ -490,7 +501,6 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
     std::vector<std::string> reg_data;
 
     // Load each piece of data into reg_data
-    // and change max field_width if necessary
     std::string data;
     for (auto i = 0; i < this->columns->size(); i++)
     {
@@ -521,4 +531,100 @@ bool Table::drop_table()
 
   std::cout << "Dropped table " << this->name << ".\n";
   return 1;
+}
+
+bool Table::create_index(const char* column)
+{
+  // Check that the column actually exists in the table
+  int column_pos;
+  bool field_exists = 0;
+  for (auto& col : *this->columns)
+  {
+    if (strcmp(column, col->name) == 0)    // If strings are equal
+    {
+      field_exists = 1;
+      column_pos = &col - &this->columns->at(0);
+      break;
+    }
+  }
+
+  if (!field_exists)
+  {
+    fprintf(stderr, "ERROR: Column %s not found in table %s.\n", column,
+            this->name);
+    return 0;
+  }
+
+  for (const auto index : *this->indexes)
+  {
+    if (strcmp(index->name, column) == 0)
+    {
+      fprintf(stderr, "ERROR: There's already an index on column %s.\n",
+              column);
+      return 0;
+    }
+  }
+
+  if (this->columns->at(column_pos)->type.data_type != hsql::DataType::INT)
+  {
+    fprintf(stderr, "ERROR: Indexed column must be of type INT.\n");
+    return 0;
+  }
+
+  // TODO: add support for other datatypes
+  // Create tree
+  std::map<int, std::vector<std::string>> index_tree;
+
+  // LOAD ALL REGS
+  for (const auto& reg : fs::directory_iterator(this->regs_path))
+  {
+    // Load data in file to reg_data
+    std::ifstream data_file(reg.path());
+    std::vector<std::string> reg_data;
+
+    // Load each piece of data into reg_data
+    std::string data;
+    for (auto i = 0; i < this->columns->size(); i++)
+    {
+      getline(data_file, data, '\t');
+      reg_data.push_back(data);
+    }
+
+    // If the key is already in the map, then add current reg's path to the
+    // vector
+    // Else, insert the key in the map and add current reg's path to the
+    // vector
+    int val = stoi(reg_data[column_pos]);
+    auto elem = index_tree.find(val);
+    if (elem != index_tree.end())
+      elem->second.push_back(reg.path().filename().string());
+    else
+      index_tree.insert(std::pair<int, std::vector<std::string>>(
+          val, std::vector<std::string>(1, reg.path().filename().string())));
+  }
+
+  std::string idx_path =
+      std::string(this->indexes_path) + std::string(column) + "/";
+  if (mkdir(idx_path.c_str(), S_IRWXU) != 0)
+    throw std::invalid_argument("ERROR: Couldn't create index " +
+                                std::string(column) + "'s folder.\n");
+
+  for (const auto& idx : index_tree)
+  {
+    std::string idx_val_path = idx_path + std::to_string(idx.first) + "/";
+    if (mkdir(idx_val_path.c_str(), S_IRWXU) != 0)
+      throw std::invalid_argument("ERROR: Couldn't create index with value " +
+                                  std::to_string(idx.first) + "'s folder.\n");
+
+    for (const auto& filename : idx.second)
+    {
+      std::ofstream file(idx_val_path + filename);
+      file.close();
+    }
+  }
+
+  std::cout << "Index " << column << " created successfully on table "
+            << this->name << ".\n";
+
+  return 0;
 }

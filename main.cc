@@ -37,7 +37,8 @@ int main()
   while (1)
   {
     // If we are writing a new query (already finished last query), prompt
-    // 'FlaviaDB> ' Else, we are write a multiline query. In that case, we
+    // 'FlaviaDB> '
+    // Else we are writing a multiline query. In that case, we
     // continue the prompt using '-> '
     char* query =
         (query_str.empty()) ? readline("FlaviaDB> ") : readline("\t-> ");
@@ -56,7 +57,6 @@ int main()
         for (auto i = 0; i < result->size(); i++)
         {
           const hsql::SQLStatement* statement = result->getStatement(i);
-          // printStatementInfo(statement);
 
           switch (statement->type())
           {
@@ -143,15 +143,31 @@ int main()
                 (hsql::CreateStatement*)statement;
             char* table_path = ft::getTablePath(create_stmt->tableName);
 
-            if (!ft::dirExists(table_path))
+            if (create_stmt->type == hsql::kCreateTable)
             {
-              Table* table =
-                  new Table(create_stmt->tableName, create_stmt->columns);
-              delete table;
+              if (!ft::dirExists(table_path))
+              {
+                Table* table =
+                    new Table(create_stmt->tableName, create_stmt->columns);
+                delete table;
+              }
+              else
+                fprintf(stderr, "Table named %s already exists!\n",
+                        create_stmt->tableName);
             }
-            else
-              fprintf(stderr, "Table named %s already exists!\n",
-                      create_stmt->tableName);
+            else if (create_stmt->type == hsql::kCreateIndex)
+            {
+              try
+              {
+                Table* stored_tbl = new Table(create_stmt->tableName);
+                stored_tbl->create_index(create_stmt->columns->at(0)->name);
+                delete stored_tbl;
+              }
+              catch (std::invalid_argument& e)
+              {
+                std::cout << e.what() << "\n";
+              }
+            }
 
             break;
           }
