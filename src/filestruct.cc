@@ -1,11 +1,4 @@
 #include "filestruct.hh"
-#include <cstring>
-#include <fstream>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <vector>
-
-#define FLAVIADB_TEST_DB "/home/mgonnav/.flaviadb/test/"
 
 namespace ftools
 {

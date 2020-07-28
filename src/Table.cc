@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 
 #define DATE_FORMAT "%d-%m-%Y"
+
 namespace ft = ftools;
 namespace fs = std::filesystem;
 namespace pu = printUtils;
@@ -340,6 +341,61 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
         fprintf(stderr, "ERROR: Column %s not found in table %s.\n",
                 field->name, this->name);
         return 0;
+      }
+    }
+  }
+
+  if (stmt->whereClause != nullptr && this->indexes->size() > 0)
+  {
+    for (const auto& index : *this->indexes)
+    {
+      if (strcmp(index->name, stmt->whereClause->expr->name) == 0)
+      {
+        char* indexed_data = ft::getString(
+            {this->indexes_path, index->name, "/",
+             std::to_string(stmt->whereClause->expr2->ival).c_str()});
+        if (ft::dirExists(indexed_data))
+        {
+          // COLLECT DATA FROM ALL REGS
+          std::vector<std::vector<std::string>> regs_data;
+          for (const auto& reg : fs::directory_iterator(indexed_data))
+          {
+            // Load data in file to reg_data
+            std::ifstream data_file(ft::getString(
+                {this->regs_path, reg.path().filename().c_str()}));
+            std::vector<std::string> reg_data(stmt->selectList->size(), "");
+
+            // Load piece of data
+            std::string data;
+            for (auto i = 0; i < this->columns->size(); i++)
+            {
+              getline(data_file, data, '\t');
+
+              // Find index of current field in the requested order
+              auto field_pos = std::find(requested_columns_order.begin(),
+                                         requested_columns_order.end(), i);
+
+              // If field was requested, add it to reg_data
+              if (field_pos != requested_columns_order.end())
+              {
+                auto current_req_field =
+                    std::distance(requested_columns_order.begin(), field_pos);
+                reg_data[current_req_field] = data;
+                // If data witdth is larger than current field_width,
+                // make it the new field_width
+                if (fields_width[current_req_field] < data.size() + 2)
+                  fields_width[current_req_field] = data.size() + 2;
+              }
+            }
+
+            regs_data.push_back(reg_data);
+          }
+
+          pu::print_select_result(stmt->selectList, &regs_data, &fields_width);
+          std::cout << "Returned " << regs_data.size()
+                    << " rows using indexed search.\n";
+          return 1;
+        }
       }
     }
   }
