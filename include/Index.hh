@@ -1,7 +1,7 @@
 #ifndef _INDEX_HH
 #define _INDEX_HH
-#include <string>
 #include <cstring>
+#include <string>
 
 struct Index
 {
@@ -12,4 +12,3 @@ struct Index
 };
 
 #endif    // _INDEX_HH
-

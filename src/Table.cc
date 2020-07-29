@@ -263,20 +263,23 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
 
   // Load piece of data
   std::string data;
-  for (auto i = 0; i < this->columns->size(); i++)
+  for (const auto& col : *this->columns)
   {
     getline(file_to_index, data, '\t');
 
-    if (this->columns->at(i)->type.data_type == hsql::DataType::INT)
+    if (col->type.data_type == hsql::DataType::INT)
     {
       for (const auto& index : *this->indexes)
       {
-        if (strcmp(index->name, this->columns->at(i)->name) == 0)
+        if (strcmp(index->name, col->name) == 0)
         {
-          std::string idx_path = ft::getString({this->indexes_path, index->name, "/", data.c_str(), "/"});
+          std::string idx_path = ft::getString(
+              {this->indexes_path, index->name, "/", data.c_str(), "/"});
           mkdir(idx_path.c_str(), S_IRWXU);
 
-          std::ofstream indexed_file (idx_path + std::to_string(ft::getRegCount(this->name)) + ".sqlito");
+          std::ofstream indexed_file(
+              idx_path + std::to_string(ft::getRegCount(this->name)) +
+              ".sqlito");
           indexed_file.close();
         }
       }
@@ -571,7 +574,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
 
     // Load each piece of data into reg_data
     std::string data;
-    for (auto i = 0; i < this->columns->size(); i++)
+    for (const auto& col : *this->columns)
     {
       getline(data_file, data, '\t');
       reg_data.push_back(data);
@@ -579,7 +582,27 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
 
     // WHERE CLAUSE
     if (compare_where(column_type, reg_data[where_column_pos], stmt->expr))
+    {
       regs_to_delete_path.push_back(reg.path());
+      for (const auto& index : *this->indexes)
+      {
+        for (auto i = 0; i < this->columns->size(); i++)
+        {
+          const auto col = this->columns->at(i);
+          if (strcmp(index->name, col->name) == 0)
+          {
+            std::string indexed_reg_folder =
+                ft::getString({this->indexes_path, index->name, "/",
+                               reg_data[i].c_str(), "/"});
+            std::string indexed_reg_path =
+                indexed_reg_folder + reg.path().filename().string();
+            remove(indexed_reg_path.c_str());
+            if (fs::is_empty(fs::path(indexed_reg_folder)))
+              remove(indexed_reg_folder.c_str());
+          }
+        }
+      }
+    }
   }
 
   for (const auto& path : regs_to_delete_path)

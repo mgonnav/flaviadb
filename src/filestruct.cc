@@ -124,6 +124,6 @@ int getRegCount(const char* table_name)
   rCount.close();
   count = stoi(data);
 
-  return count-1;
+  return count - 1;
 }
 }    // namespace ftools
