@@ -106,4 +106,24 @@ char* getNewRegPath(const char* table_name)
 
   return reg_path;
 }
+
+int getRegCount(const char* table_name)
+{
+  std::string reg_count_file_path =
+      getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+  std::ifstream rCount(reg_count_file_path);
+  if (!rCount.is_open())
+  {
+    fprintf(stderr, "ERROR: Couldn't read %s.\n", reg_count_file_path.c_str());
+    return -1;
+  }
+
+  int count;
+  std::string data;
+  getline(rCount, data);
+  rCount.close();
+  count = stoi(data);
+
+  return count-1;
+}
 }    // namespace ftools

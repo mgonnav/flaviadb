@@ -33,6 +33,7 @@ struct Table
   std::vector<hsql::ColumnDefinition*>* columns;
   std::vector<Index*>* indexes;
   int reg_size;
+  int reg_count;
 
   bool insert_record(const hsql::InsertStatement* stmt);
   bool show_records(const hsql::SelectStatement* stmt);

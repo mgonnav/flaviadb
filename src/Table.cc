@@ -11,6 +11,7 @@ Table::Table(const char* name)
   this->path = ft::getTablePath(this->name);
   this->regs_path = ft::getRegistersPath(this->name);
   this->indexes_path = ft::getIndexesPath(this->name);
+  this->reg_count = ft::getRegCount(this->name);
 
   if (!ft::dirExists(this->path))
     throw std::invalid_argument("Table " + std::string(this->name) +
@@ -36,6 +37,7 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
   this->path = ft::getTablePath(this->name);
   this->regs_path = ft::getRegistersPath(this->name);
   this->indexes_path = ft::getIndexesPath(this->name);
+
   this->indexes = new std::vector<Index*>;
 
   if (mkdir(this->path, S_IRWXU) != 0)
@@ -153,6 +155,7 @@ bool Table::load_metadata()
 
 bool Table::insert_record(const hsql::InsertStatement* stmt)
 {
+  char* reg_file;
   if (stmt->columns != nullptr)
   {
     return 1;    // TODO: Insert on specific columns
@@ -173,7 +176,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
     }
 
     // Create filename
-    char* reg_file = ft::getNewRegPath(this->name);
+    reg_file = ft::getNewRegPath(this->name);
 
     std::ofstream new_reg(reg_file);
     for (size_t i = 0; i < stmt->values->size(); i++)
@@ -254,6 +257,31 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
     }
     new_reg.close();
   }    // TODO: REFACTOR ERRORS
+
+  std::ifstream file_to_index(reg_file);
+  std::vector<std::string> reg_data();
+
+  // Load piece of data
+  std::string data;
+  for (auto i = 0; i < this->columns->size(); i++)
+  {
+    getline(file_to_index, data, '\t');
+
+    if (this->columns->at(i)->type.data_type == hsql::DataType::INT)
+    {
+      for (const auto& index : *this->indexes)
+      {
+        if (strcmp(index->name, this->columns->at(i)->name) == 0)
+        {
+          std::string idx_path = ft::getString({this->indexes_path, index->name, "/", data.c_str(), "/"});
+          mkdir(idx_path.c_str(), S_IRWXU);
+
+          std::ofstream indexed_file (idx_path + std::to_string(ft::getRegCount(this->name)) + ".sqlito");
+          indexed_file.close();
+        }
+      }
+    }
+  }
 
   std::cout << "Inserted 1 row.\n";
   return 1;

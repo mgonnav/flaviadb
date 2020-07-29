@@ -31,6 +31,8 @@ char* getRegCountPath(const char* table_name);
 std::string getCurrentTimeAsString();
 
 char* getNewRegPath(const char* table_name);
+
+int getRegCount(const char* table_name);
 }    // namespace ftools
 
 #endif    // _FILE_TOOLS
