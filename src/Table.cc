@@ -11,7 +11,6 @@ Table::Table(const char* name)
   this->path = ft::getTablePath(this->name);
   this->regs_path = ft::getRegistersPath(this->name);
   this->indexes_path = ft::getIndexesPath(this->name);
-  this->reg_count = ft::getRegCount(this->name);
 
   if (!ft::dirExists(this->path))
     throw std::invalid_argument("Table " + std::string(this->name) +
@@ -22,6 +21,7 @@ Table::Table(const char* name)
     throw std::invalid_argument("ERROR while loading metadata for table " +
                                 std::string(this->name) + ".\n");
 
+  this->reg_count = ft::getRegCount(this->name);
   this->indexes = new std::vector<Index*>;
   for (const auto& reg : fs::directory_iterator(this->indexes_path))
   {
@@ -715,7 +715,7 @@ bool Table::create_index(const char* column)
     }
   }
 
-  std::cout << "Index " << column << " created successfully on table "
+  std::cout << "Index " << column << " was created successfully on table "
             << this->name << ".\n";
 
   return 0;
