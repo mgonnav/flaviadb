@@ -541,21 +541,26 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
       if (updated_index != nullptr)
       {
         // Remove old index
-        std::string idx_folder = ft::getString({this->indexes_path, updated_index->name, "/", old_value.c_str(), "/"});
+        std::string idx_folder =
+            ft::getString({this->indexes_path, updated_index->name, "/",
+                           old_value.c_str(), "/"});
         std::string idx_path = idx_folder + reg.path().filename().c_str();
-        remove (idx_path.c_str());
+        remove(idx_path.c_str());
         if (fs::is_empty(fs::path(idx_folder)))
-            remove(idx_folder.c_str());
+          remove(idx_folder.c_str());
         std::cout << "removed " << idx_path << "\n";
 
         // Add new index
-        std::string new_idx_folder = ft::getString({this->indexes_path, updated_index->name, "/", reg_data[update_column_pos].c_str(), "/"});
+        std::string new_idx_folder =
+            ft::getString({this->indexes_path, updated_index->name, "/",
+                           reg_data[update_column_pos].c_str(), "/"});
         mkdir(new_idx_folder.c_str(), S_IRWXU);
         std::cout << "made folder " << new_idx_folder << "\n";
 
-        std::ofstream new_idx (new_idx_folder + reg.path().filename().string());
+        std::ofstream new_idx(new_idx_folder + reg.path().filename().string());
         new_idx.close();
-        std::cout << "made reg " << new_idx_folder << reg.path().filename().string() << "\n";
+        std::cout << "made reg " << new_idx_folder
+                  << reg.path().filename().string() << "\n";
       }
     }
   }
@@ -703,7 +708,7 @@ bool Table::create_index(const char* column)
 
     // Load each piece of data into reg_data
     std::string data;
-    for (int i = 0; i < column_pos+1; i++)
+    for (int i = 0; i < column_pos + 1; i++)
       getline(data_file, data, '\t');
 
     // If the key is already in the map, then add current reg's path to the
@@ -728,8 +733,9 @@ bool Table::create_index(const char* column)
   {
     std::string idx_val_path = idx_path + std::to_string(idx.first) + "/";
     if (mkdir(idx_val_path.c_str(), S_IRWXU) != 0)
-      throw std::invalid_argument("ERROR: Couldn't create a folder for the index with value " +
-                                  std::to_string(idx.first) + ".\n");
+      throw std::invalid_argument(
+          "ERROR: Couldn't create a folder for the index with value " +
+          std::to_string(idx.first) + ".\n");
 
     for (const auto& filename : idx.second)
     {

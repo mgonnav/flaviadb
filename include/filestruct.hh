@@ -1,13 +1,13 @@
 #ifndef _FILE_TOOLS
 #define _FILE_TOOLS
 
+#include "flaviadb_paths.hh"
 #include <cstring>
 #include <fstream>
 #include <stdio.h>
 #include <string>
 #include <sys/stat.h>
 #include <vector>
-#include "flaviadb_paths.hh"
 
 namespace ftools
 {

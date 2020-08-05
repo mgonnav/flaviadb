@@ -11,4 +11,8 @@ include_directories(include)
 
 add_executable(flaviadb main.cc src/Table.cc src/filestruct.cc src/printutils.cc
                src/where.cc)
+add_executable(query_run query_run.cc src/Table.cc src/filestruct.cc src/printutils.cc
+               src/where.cc)
+
 target_link_libraries(flaviadb readline sqlparser)
+target_link_libraries(query_run sqlparser)
