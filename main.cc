@@ -73,7 +73,7 @@ int main()
                 stored_tbl->show_records(select_stmt);
                 delete stored_tbl;
               }
-              catch (std::invalid_argument& e)
+              catch (const std::exception& e)
               {
                 std::cout << e.what() << "\n";
               }
@@ -94,7 +94,7 @@ int main()
               stored_tbl->insert_record(insert_stmt);
               delete stored_tbl;
             }
-            catch (std::invalid_argument& e)
+            catch (const std::exception& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -112,7 +112,7 @@ int main()
               stored_tbl->update_records(update_stmt);
               delete stored_tbl;
             }
-            catch (std::invalid_argument& e)
+            catch (const std::exception& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -130,7 +130,7 @@ int main()
               stored_tbl->delete_records(delete_stmt);
               delete stored_tbl;
             }
-            catch (std::invalid_argument& e)
+            catch (const std::exception& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -163,7 +163,7 @@ int main()
                 stored_tbl->create_index(create_stmt->columns->at(0)->name);
                 delete stored_tbl;
               }
-              catch (std::invalid_argument& e)
+              catch (const std::exception& e)
               {
                 std::cout << e.what() << "\n";
               }
@@ -181,7 +181,7 @@ int main()
               stored_tbl->drop_table();
               delete stored_tbl;
             }
-            catch (std::invalid_argument& e)
+            catch (const std::exception& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -207,7 +207,7 @@ int main()
                 pu::print_table_desc(stored_tbl);
                 delete stored_tbl;
               }
-              catch (std::invalid_argument& e)
+              catch (const std::exception& e)
               {
                 std::cout << e.what() << "\n";
               }
