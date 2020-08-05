@@ -44,7 +44,7 @@ bool compare_where(hsql::ColumnType* column_type, std::string data,
   if (where == nullptr)
     return 1;
 
-  short int comparison;
+  int comparison;
 
   switch (column_type->data_type)
   {
@@ -55,7 +55,7 @@ bool compare_where(hsql::ColumnType* column_type, std::string data,
     comparison = compare_date(data.c_str(), where->expr2->name);
     break;
   case hsql::DataType::INT:
-    comparison = atoi(data.c_str()) - where->expr2->ival;
+    comparison = stoi(data) - where->expr2->ival;
     if (comparison < 0)
       comparison = -1;
     else if (comparison > 0)

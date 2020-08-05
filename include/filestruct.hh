@@ -7,8 +7,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <vector>
-
-#define FLAVIADB_TEST_DB "/home/mgonnav/.flaviadb/test/"
+#include "flaviadb_paths.hh"
 
 namespace ftools
 {

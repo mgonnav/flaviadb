@@ -273,12 +273,12 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       {
         if (strcmp(index->name, col->name) == 0)
         {
-          std::string idx_path = ft::getString(
+          std::string idx_folder = ft::getString(
               {this->indexes_path, index->name, "/", data.c_str(), "/"});
-          mkdir(idx_path.c_str(), S_IRWXU);
+          mkdir(idx_folder.c_str(), S_IRWXU);
 
           std::ofstream indexed_file(
-              idx_path + std::to_string(ft::getRegCount(this->name)) +
+              idx_folder + std::to_string(ft::getRegCount(this->name)) +
               ".sqlito");
           indexed_file.close();
         }
@@ -503,6 +503,11 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     return 0;
   }
 
+  Index* updated_index = nullptr;
+  for (const auto& index : *this->indexes)
+    if (strcmp(index->name, update_column->name) == 0)
+      updated_index = index;
+
   std::vector<std::string> regs_to_update_path;
   std::vector<std::vector<std::string>> regs_data;
   // LOAD ALL REGS
@@ -524,6 +529,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     if (compare_where(column_type, reg_data[where_column_pos], stmt->where))
     {
       regs_to_update_path.push_back(reg.path());
+      std::string old_value = reg_data[update_column_pos];
       if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
         reg_data[update_column_pos] = stmt->updates->at(0)->value->name;
       else
@@ -531,6 +537,26 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
             std::to_string(stmt->updates->at(0)->value->ival);
 
       regs_data.push_back(reg_data);
+
+      if (updated_index != nullptr)
+      {
+        // Remove old index
+        std::string idx_folder = ft::getString({this->indexes_path, updated_index->name, "/", old_value.c_str(), "/"});
+        std::string idx_path = idx_folder + reg.path().filename().c_str();
+        remove (idx_path.c_str());
+        if (fs::is_empty(fs::path(idx_folder)))
+            remove(idx_folder.c_str());
+        std::cout << "removed " << idx_path << "\n";
+
+        // Add new index
+        std::string new_idx_folder = ft::getString({this->indexes_path, updated_index->name, "/", reg_data[update_column_pos].c_str(), "/"});
+        mkdir(new_idx_folder.c_str(), S_IRWXU);
+        std::cout << "made folder " << new_idx_folder << "\n";
+
+        std::ofstream new_idx (new_idx_folder + reg.path().filename().string());
+        new_idx.close();
+        std::cout << "made reg " << new_idx_folder << reg.path().filename().string() << "\n";
+      }
     }
   }
 
@@ -594,8 +620,10 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
             std::string indexed_reg_folder =
                 ft::getString({this->indexes_path, index->name, "/",
                                reg_data[i].c_str(), "/"});
+
             std::string indexed_reg_path =
                 indexed_reg_folder + reg.path().filename().string();
+
             remove(indexed_reg_path.c_str());
             if (fs::is_empty(fs::path(indexed_reg_folder)))
               remove(indexed_reg_folder.c_str());
@@ -672,21 +700,17 @@ bool Table::create_index(const char* column)
   {
     // Load data in file to reg_data
     std::ifstream data_file(reg.path());
-    std::vector<std::string> reg_data;
 
     // Load each piece of data into reg_data
     std::string data;
-    for (auto i = 0; i < this->columns->size(); i++)
-    {
+    for (int i = 0; i < column_pos+1; i++)
       getline(data_file, data, '\t');
-      reg_data.push_back(data);
-    }
 
     // If the key is already in the map, then add current reg's path to the
     // vector
     // Else, insert the key in the map and add current reg's path to the
     // vector
-    int val = stoi(reg_data[column_pos]);
+    int val = stoi(data);
     auto elem = index_tree.find(val);
     if (elem != index_tree.end())
       elem->second.push_back(reg.path().filename().string());
@@ -695,8 +719,7 @@ bool Table::create_index(const char* column)
           val, std::vector<std::string>(1, reg.path().filename().string())));
   }
 
-  std::string idx_path =
-      std::string(this->indexes_path) + std::string(column) + "/";
+  std::string idx_path = ft::getString({this->indexes_path, column, "/"});
   if (mkdir(idx_path.c_str(), S_IRWXU) != 0)
     throw std::invalid_argument("ERROR: Couldn't create index " +
                                 std::string(column) + "'s folder.\n");
@@ -705,8 +728,8 @@ bool Table::create_index(const char* column)
   {
     std::string idx_val_path = idx_path + std::to_string(idx.first) + "/";
     if (mkdir(idx_val_path.c_str(), S_IRWXU) != 0)
-      throw std::invalid_argument("ERROR: Couldn't create index with value " +
-                                  std::to_string(idx.first) + "'s folder.\n");
+      throw std::invalid_argument("ERROR: Couldn't create a folder for the index with value " +
+                                  std::to_string(idx.first) + ".\n");
 
     for (const auto& filename : idx.second)
     {
