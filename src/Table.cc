@@ -5,24 +5,38 @@ namespace ft = ftools;
 namespace fs = std::filesystem;
 namespace pu = printUtils;
 
-Table::Table(const char* name)
+Table::Table(std::string name)
 {
   this->name = name;
+  loadPaths();
+  checkTableExists();
+  load_metadata();
+  this->registers = new std::map<std::string, Register*>();
+
+  this->reg_count = ft::getRegCount(this->name);
+
+  this->indexes = new std::vector<Index*>;
+  loadIndexes();
+  loadStoredRegisters();
+}
+
+void Table::loadPaths()
+{
   this->path = ft::getTablePath(this->name);
   this->regs_path = ft::getRegistersPath(this->name);
   this->indexes_path = ft::getIndexesPath(this->name);
+  this->metadata_path = ft::getMetadataPath(this->name);
+}
 
+void Table::checkTableExists()
+{
   if (!ft::dirExists(this->path))
     throw std::invalid_argument("Table " + std::string(this->name) +
                                 " doesn't exist.\n");
+}
 
-  this->metadata_path = ft::getMetadataPath(this->name);
-  if (!this->load_metadata())
-    throw std::invalid_argument("ERROR while loading metadata for table " +
-                                std::string(this->name) + ".\n");
-
-  this->reg_count = ft::getRegCount(this->name);
-  this->indexes = new std::vector<Index*>;
+void Table::loadIndexes()
+{
   for (const auto& reg : fs::directory_iterator(this->indexes_path))
   {
     char* idx_name = new char[strlen(reg.path().filename().c_str())];
@@ -31,44 +45,40 @@ Table::Table(const char* name)
   }
 }
 
-Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
+void Table::loadStoredRegisters()
+{
+  for (const auto& reg : fs::directory_iterator(this->regs_path))
+  {
+    // Load data in file to reg_data
+    std::ifstream data_file(reg.path());
+    std::vector<std::string> reg_data;
+
+    // Load each piece of data into reg_data
+    std::string data;
+    for (size_t i = 0; i < this->columns->size(); i++)
+    {
+      getline(data_file, data, '\t');
+      reg_data.push_back(data);
+    }
+
+    this->registers->insert(std::make_pair<std::string, Register*>(reg.path().filename().string(), new Register(reg_data)));
+  }
+}
+
+Table::Table(std::string name, std::vector<hsql::ColumnDefinition*>* cols)
 {
   this->name = name;
-  this->path = ft::getTablePath(this->name);
-  this->regs_path = ft::getRegistersPath(this->name);
-  this->indexes_path = ft::getIndexesPath(this->name);
-
+  loadPaths();
   this->indexes = new std::vector<Index*>;
 
-  if (mkdir(this->path, S_IRWXU) != 0)
-    throw std::invalid_argument("ERROR: Couldn't create table " +
-                                std::string(this->name) + ".\n");
-
-  if (mkdir(this->regs_path, S_IRWXU) != 0)
-    throw std::invalid_argument(
-        "ERROR: Couldn't create registers folder for table " +
-        std::string(this->name) + ".\n");
-
-  if (mkdir(this->indexes_path, S_IRWXU) != 0)
-    throw std::invalid_argument(
-        "ERROR: Couldn't create indexes folder for table " +
-        std::string(this->name) + ".\n");
+  createTableFolders();
 
   this->columns = cols;
-  reg_size = 0;
-  for (const hsql::ColumnDefinition* col : *this->columns)
-  {
-    if (col->type.data_type == hsql::DataType::INT)
-      reg_size += 4;
-    else if (col->type.data_type == hsql::DataType::CHAR)
-      reg_size += col->type.length;
-    else if (col->type.data_type == hsql::DataType::DATE)
-      reg_size += 8;
-  }
+  this->reg_size = calculateRegSize();
+  this->registers = new std::map<std::string, Register*>();
 
   // Create medata.dat file for table
   // and fill it with table's name & cols info
-  this->metadata_path = ft::getMetadataPath(this->name);
   std::ofstream wMetadata(this->metadata_path);
   wMetadata << this->name << "\t" << this->columns->size() << "\t"
             << this->reg_size << "\n";
@@ -84,78 +94,118 @@ Table::Table(const char* name, std::vector<hsql::ColumnDefinition*>* cols)
   std::cout << "Table " << this->name << " was created successfully.\n";
 }
 
+void Table::createTableFolders()
+{
+  ft::createFolder(this->path);
+  ft::createFolder(this->regs_path);
+  ft::createFolder(this->indexes_path);
+}
+
+int Table::calculateRegSize()
+{
+  int reg_size = 0;
+  for (const auto& col : *this->columns)
+  {
+    hsql::DataType data_type = col->type.data_type;
+    if (data_type == hsql::DataType::INT)
+      reg_size += 4;
+    else if (data_type == hsql::DataType::CHAR)
+      reg_size += col->type.length;
+    else if (data_type == hsql::DataType::DATE)
+      reg_size += 8;
+  }
+
+  return reg_size;
+}
+
 Table::~Table()
 {
-  delete this->name;
-  delete this->path;
-  delete this->regs_path;
-  delete this->metadata_path;
-  delete this->indexes_path;
+  delete this->registers;
   delete this->columns;
   delete this->indexes;
 }
 
 bool Table::load_metadata()
 {
-  std::ifstream rMetadata(this->metadata_path);
-  if (!rMetadata)
-  {
-    fprintf(stderr, "ERROR: metadata.dat doesn't exist\n");
-    return 0;
-  }
-
-  std::string data;
-  // Read first line's data
-  // Read table name
-  getline(rMetadata, data, '\t');
-  if (this->name != data)
-  {
-    fprintf(
-        stderr,
-        "ERROR: Metadata's stored table name doesn't match requested table\n");
-    return 0;
-  }
-  // Read total # of columns in table
-  getline(rMetadata, data, '\t');
-  int total_cols = stoi(data);
-  // Read reg_size
-  getline(rMetadata, data, '\n');
-  this->reg_size = stoi(data);
-  this->columns = new std::vector<hsql::ColumnDefinition*>;
-  while (total_cols--)
-  {
-    // Read columns' data
-    // Read column name
-    getline(rMetadata, data, '\t');
-    char* col_name = new char[data.size()];
-    strcpy(col_name, (char*)data.c_str());
-
-    // Read column type
-    getline(rMetadata, data, '\t');
-    int col_enum = stoi(data);
-
-    // Read column length, e.g., CHAR(20) where 20 is the length
-    getline(rMetadata, data, '\t');
-    int col_length = stoi(data);
-
-    // Create ColumnType object from previous data
-    hsql::ColumnType col_type((hsql::DataType)col_enum, col_length);
-
-    // Read column nullability
-    getline(rMetadata, data, '\n');
-    bool col_nullable = (bool)(data.c_str());
-
-    // Add column to cols vector of Table
-    this->columns->push_back(
-        new hsql::ColumnDefinition(col_name, col_type, col_nullable));
-  }
+  openMetadataFile();
+  loadMetadataHeader();
+  for (auto& column : *this->columns)
+    loadColumnData(column);
 
   return 1;
 }
 
+void Table::openMetadataFile()
+{
+  this->metadata_file.open(this->metadata_path);
+  if (!this->metadata_file.is_open())
+    throw DB_exception("ERROR: metadata.dat doesn't exist.\n");
+}
+
+void Table::loadMetadataHeader()
+{
+  loadTableName();
+  loadColumnCount();
+  loadRegSize();
+}
+
+void Table::loadTableName()
+{
+  std::string metadata_table_name;
+  getline(this->metadata_file, metadata_table_name, '\t');
+
+  if (this->name != metadata_table_name)
+    throw DB_exception(
+        "ERROR: Metadata's stored table name doesn't match requested table.\n");
+}
+
+void Table::loadColumnCount()
+{
+  std::string column_count;
+  getline(this->metadata_file, column_count, '\t');
+  this->columns = new std::vector<hsql::ColumnDefinition*>(stoi(column_count));
+}
+
+void Table::loadRegSize()
+{
+  std::string reg_size;
+  getline(this->metadata_file, reg_size, '\n');
+  this->reg_size = stoi(reg_size);
+}
+
+void Table::loadColumnData(hsql::ColumnDefinition*& column)
+{
+  std::string data;
+
+  getline(this->metadata_file, data, '\t');
+  char* col_name = new char[data.size()];
+  strcpy(col_name, data.c_str());
+
+  hsql::ColumnType col_type = getColumnType();
+
+  getline(this->metadata_file, data, '\n');
+  bool col_nullable = stoi(data);
+
+  column = new hsql::ColumnDefinition(col_name, col_type, col_nullable);
+}
+
+hsql::ColumnType Table::getColumnType()
+{
+  std::string data;
+
+  getline(this->metadata_file, data, '\t');
+  int col_enum = stoi(data);
+
+  getline(this->metadata_file, data, '\t');
+  int col_length = stoi(data);
+
+  hsql::ColumnType col_type((hsql::DataType)col_enum, col_length);
+  return col_type;
+}
+
 bool Table::insert_record(const hsql::InsertStatement* stmt)
 {
-  char* reg_file;
+  std::string reg_file;
   if (stmt->columns != nullptr)
   {
     return 1;    // TODO: Insert on specific columns
@@ -179,6 +229,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
     reg_file = ft::getNewRegPath(this->name);
 
     std::ofstream new_reg(reg_file);
+    std::vector<std::string> new_reg_data;
     for (size_t i = 0; i < stmt->values->size(); i++)
     {
       hsql::Expr* value = stmt->values->at(i);
@@ -187,8 +238,10 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       {
         if (column->type.data_type == hsql::DataType::CHAR)
         {
-          if (strlen(value->name) <= column->type.length)
+          if (strlen(value->name) <= column->type.length) {
+            new_reg_data.push_back(value->name);
             new_reg << value->name;
+          }
           else
           {
             fprintf(stderr,
@@ -196,7 +249,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
                     "length is %ld.\n",
                     column->name, column->type.length);
             new_reg.close();
-            remove(reg_file);
+            remove(reg_file.c_str());
             return 0;
           }
         }
@@ -209,13 +262,15 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
                     "value supported is 9999.\n",
                     value->name);
             new_reg.close();
-            remove(reg_file);
+            remove(reg_file.c_str());
             return 0;
           }
 
           struct tm tm = {0};
-          if (strptime(value->name, DATE_FORMAT, &tm))
+          if (strptime(value->name, DATE_FORMAT, &tm)) {
+            new_reg_data.push_back(value->name);
             new_reg << value->name;
+          }
           else
           {
             fprintf(stderr,
@@ -223,7 +278,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
                     "Please use %s format.\n",
                     value->name, DATE_FORMAT);
             new_reg.close();
-            remove(reg_file);
+            remove(reg_file.c_str());
             return 0;
           }
         }
@@ -234,13 +289,14 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
                   "type.\n",
                   this->name, column->name);
           new_reg.close();
-          remove(reg_file);
+          remove(reg_file.c_str());
           return 0;
         }
       }
       else if (value->type == hsql::kExprLiteralInt &&
                column->type.data_type == hsql::DataType::INT)
       {
+        new_reg_data.push_back(std::to_string(value->ival));
         new_reg << value->ival;
       }
       else
@@ -250,13 +306,15 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
                 "type.\n",
                 this->name, column->name);
         new_reg.close();
-        remove(reg_file);
+        remove(reg_file.c_str());
         return 0;
       }
       new_reg << "\t";
     }
+    this->reg_count++;
+    this->registers->insert(std::make_pair<std::string, Register*>(std::to_string(this->reg_count) + ".sqlito", new Register(new_reg_data)));
     new_reg.close();
-  }    // TODO: REFACTOR ERRORS
+  }   // TODO: REFACTOR ERRORS
 
   std::ifstream file_to_index(reg_file);
   std::vector<std::string> reg_data();
@@ -273,12 +331,13 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       {
         if (strcmp(index->name, col->name) == 0)
         {
-          std::string idx_folder = ft::getString(
-              {this->indexes_path, index->name, "/", data.c_str(), "/"});
+          std::string idx_folder =
+              this->indexes_path + index->name + "/" + data + "/";
+
           mkdir(idx_folder.c_str(), S_IRWXU);
 
           std::ofstream indexed_file(
-              idx_folder + std::to_string(ft::getRegCount(this->name)) +
+              idx_folder + std::to_string(this->reg_count) +
               ".sqlito");
           indexed_file.close();
         }
@@ -290,7 +349,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
   return 1;
 }
 
-bool Table::show_records(const hsql::SelectStatement* stmt)
+bool Table::show_records(const hsql::SelectStatement* stmt) const
 {
   // Check WHERE clause correctness
   int where_column_pos;
@@ -307,7 +366,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
   {
     delete stmt->selectList->back();
     stmt->selectList->pop_back();
-    for (auto i = 0; i < this->columns->size(); i++)
+    for (size_t i = 0; i < this->columns->size(); i++)
     {
       stmt->selectList->push_back(new hsql::Expr(hsql::kExprColumnRef));
       stmt->selectList->at(i)->name = this->columns->at(i)->name;
@@ -367,9 +426,8 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
     {
       if (strcmp(index->name, stmt->whereClause->expr->name) == 0)
       {
-        char* indexed_data = ft::getString(
-            {this->indexes_path, index->name, "/",
-             std::to_string(stmt->whereClause->expr2->ival).c_str()});
+        std::string indexed_data = this->indexes_path + std::string(index->name) + "/" +
+                             std::to_string(stmt->whereClause->expr2->ival);
         if (ft::dirExists(indexed_data))
         {
           // COLLECT DATA FROM ALL REGS
@@ -377,13 +435,13 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
           for (const auto& reg : fs::directory_iterator(indexed_data))
           {
             // Load data in file to reg_data
-            std::ifstream data_file(ft::getString(
-                {this->regs_path, reg.path().filename().c_str()}));
+            std::ifstream data_file(this->regs_path +
+                                    reg.path().filename().string());
             std::vector<std::string> reg_data(stmt->selectList->size(), "");
 
             // Load piece of data
             std::string data;
-            for (auto i = 0; i < this->columns->size(); i++)
+            for (size_t i = 0; i < this->columns->size(); i++)
             {
               getline(data_file, data, '\t');
 
@@ -427,7 +485,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt)
     // Load piece of data
     std::string data;
     bool satisfies_where = 1;
-    for (auto i = 0; i < this->columns->size(); i++)
+    for (size_t i = 0; i < this->columns->size(); i++)
     {
       getline(data_file, data, '\t');
 
@@ -519,7 +577,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
 
     // Load each piece of data into reg_data
     std::string data;
-    for (auto i = 0; i < this->columns->size(); i++)
+    for (size_t i = 0; i < this->columns->size(); i++)
     {
       getline(data_file, data, '\t');
       reg_data.push_back(data);
@@ -542,18 +600,16 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
       {
         // Remove old index
         std::string idx_folder =
-            ft::getString({this->indexes_path, updated_index->name, "/",
-                           old_value.c_str(), "/"});
-        std::string idx_path = idx_folder + reg.path().filename().c_str();
+            this->indexes_path + updated_index->name + "/" + old_value + "/";
+        std::string idx_path = idx_folder + reg.path().filename().string();
         remove(idx_path.c_str());
         if (fs::is_empty(fs::path(idx_folder)))
           remove(idx_folder.c_str());
         std::cout << "removed " << idx_path << "\n";
 
         // Add new index
-        std::string new_idx_folder =
-            ft::getString({this->indexes_path, updated_index->name, "/",
-                           reg_data[update_column_pos].c_str(), "/"});
+        std::string new_idx_folder = this->indexes_path + updated_index->name +
+                                     "/" + reg_data[update_column_pos] + "/";
         mkdir(new_idx_folder.c_str(), S_IRWXU);
         std::cout << "made folder " << new_idx_folder << "\n";
 
@@ -572,7 +628,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
   for (const auto& reg : regs_data)
   {
     // Create filename
-    const char* reg_file = regs_to_update_path[&reg - &regs_data[0]].c_str();
+    std::string reg_file = regs_to_update_path[&reg - &regs_data[0]];
 
     std::ofstream updated_reg(reg_file);
     for (const auto& data : reg)
@@ -605,7 +661,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
 
     // Load each piece of data into reg_data
     std::string data;
-    for (const auto& col : *this->columns)
+    for (size_t i = 0; i < this->columns->size(); i++)
     {
       getline(data_file, data, '\t');
       reg_data.push_back(data);
@@ -615,16 +671,16 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
     if (compare_where(column_type, reg_data[where_column_pos], stmt->expr))
     {
       regs_to_delete_path.push_back(reg.path());
+      this->registers->erase(reg.path().filename().string());
       for (const auto& index : *this->indexes)
       {
-        for (auto i = 0; i < this->columns->size(); i++)
+        for (size_t i = 0; i < this->columns->size(); i++)
         {
           const auto col = this->columns->at(i);
           if (strcmp(index->name, col->name) == 0)
           {
-            std::string indexed_reg_folder =
-                ft::getString({this->indexes_path, index->name, "/",
-                               reg_data[i].c_str(), "/"});
+            std::string indexed_reg_folder = this->indexes_path + index->name + "/" +
+                               reg_data[i] + "/";
 
             std::string indexed_reg_path =
                 indexed_reg_folder + reg.path().filename().string();
@@ -658,14 +714,14 @@ bool Table::drop_table()
   return 1;
 }
 
-bool Table::create_index(const char* column)
+bool Table::create_index(std::string column)
 {
   // Check that the column actually exists in the table
   int column_pos;
   bool field_exists = 0;
   for (auto& col : *this->columns)
   {
-    if (strcmp(column, col->name) == 0)    // If strings are equal
+    if (strcmp(column.c_str(), col->name) == 0)    // If strings are equal
     {
       field_exists = 1;
       column_pos = &col - &this->columns->at(0);
@@ -682,7 +738,7 @@ bool Table::create_index(const char* column)
 
   for (const auto index : *this->indexes)
   {
-    if (strcmp(index->name, column) == 0)
+    if (strcmp(index->name, column.c_str()) == 0)
     {
       fprintf(stderr, "ERROR: There's already an index on column %s.\n",
               column);
@@ -724,18 +780,13 @@ bool Table::create_index(const char* column)
           val, std::vector<std::string>(1, reg.path().filename().string())));
   }
 
-  std::string idx_path = ft::getString({this->indexes_path, column, "/"});
-  if (mkdir(idx_path.c_str(), S_IRWXU) != 0)
-    throw std::invalid_argument("ERROR: Couldn't create index " +
-                                std::string(column) + "'s folder.\n");
+  std::string idx_path = this->indexes_path + column + "/";
+  ft::createFolder(idx_path.c_str());
 
   for (const auto& idx : index_tree)
   {
     std::string idx_val_path = idx_path + std::to_string(idx.first) + "/";
-    if (mkdir(idx_val_path.c_str(), S_IRWXU) != 0)
-      throw std::invalid_argument(
-          "ERROR: Couldn't create a folder for the index with value " +
-          std::to_string(idx.first) + ".\n");
+    ft::createFolder(idx_val_path.c_str());
 
     for (const auto& filename : idx.second)
     {

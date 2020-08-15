@@ -2,11 +2,11 @@
 
 namespace ftools
 {
-bool dirExists(const char* const path)
+bool dirExists(std::string const& path)
 {
   struct stat info;
 
-  int statRC = stat(path, &info);
+  int statRC = stat(path.c_str(), &info);
   if (statRC != 0)
   {
     if (errno == ENOENT)    // something along the path does not exist
@@ -19,50 +19,43 @@ bool dirExists(const char* const path)
   return (info.st_mode & S_IFDIR) ? 1 : 0;
 }
 
-bool fileExists(const char* const path)
+bool fileExists(std::string const& path)
 {
   struct stat info;
   // 0 -> found | 1 -> not found
-  return !stat(path, &info);
+  return !stat(path.c_str(), &info);
 }
 
-char* getString(std::vector<const char*> strings)
+void createFolder(std::string const& folder_name)
 {
-  int total_size = 0;
-  for (const char* c : strings)
-    total_size += strlen(c);
-
-  char* str = new char[total_size + 1];
-  strcpy(str, strings[0]);
-  for (size_t i = 1; i < strings.size(); i++)
-    strcat(str, strings[i]);
-
-  return str;
+  if (mkdir(folder_name.c_str(), S_IRWXU) != 0)
+    throw std::invalid_argument(
+        "ERROR: Couldn't create folder" + std::string(folder_name) + ".\n");
 }
 
-char* getTablePath(const char* tableName)
+std::string getTablePath(std::string const& tableName)
 {
-  return getString({FLAVIADB_TEST_DB, tableName, "/"});
+  return FLAVIADB_TEST_DB + tableName + "/";
 }
 
-char* getRegistersPath(const char* tableName)
+std::string getRegistersPath(std::string const& tableName)
 {
-  return getString({FLAVIADB_TEST_DB, tableName, "/registers/"});
+  return FLAVIADB_TEST_DB + tableName + "/registers/";
 }
 
-char* getIndexesPath(const char* tableName)
+std::string getIndexesPath(std::string const& tableName)
 {
-  return getString({FLAVIADB_TEST_DB, tableName, "/indexes/"});
+  return FLAVIADB_TEST_DB + tableName + "/indexes/";
 }
 
-char* getMetadataPath(const char* tableName)
+std::string getMetadataPath(std::string const& tableName)
 {
-  return getString({FLAVIADB_TEST_DB, tableName, "/metadata.dat"});
+  return FLAVIADB_TEST_DB + tableName + "/metadata.dat";
 }
 
-char* getRegCountPath(const char* table_name)
+std::string getRegCountPath(std::string const& tableName)
 {
-  return getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+  return FLAVIADB_TEST_DB + tableName + "/reg_count.dat";
 }
 
 std::string getCurrentTimeAsString()
@@ -79,11 +72,9 @@ std::string getCurrentTimeAsString()
   return str;
 }
 
-char* getNewRegPath(const char* table_name)
+std::string getNewRegPath(std::string const& tableName)
 {
-  char* reg_path = new char[80];
-  std::string reg_count_file_path =
-      getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+  std::string reg_count_file_path = FLAVIADB_TEST_DB + tableName + "/reg_count.dat";
   std::ifstream rCount(reg_count_file_path);
   if (!rCount.is_open())
   {
@@ -97,20 +88,17 @@ char* getNewRegPath(const char* table_name)
   rCount.close();
   count = stoi(data);
 
-  strcpy(reg_path, getRegistersPath(table_name));
-  strcat(reg_path, std::to_string(count).c_str());
-  strcat(reg_path, ".sqlito");
+  std::string reg_path = getRegistersPath(tableName) + std::to_string(++count) + ".sqlito";
 
   std::ofstream wCount(reg_count_file_path);
-  wCount << ++count;
+  wCount << count;
 
   return reg_path;
 }
 
-int getRegCount(const char* table_name)
+int getRegCount(std::string const& tableName)
 {
-  std::string reg_count_file_path =
-      getString({FLAVIADB_TEST_DB, table_name, "/reg_count.dat"});
+  std::string reg_count_file_path = FLAVIADB_TEST_DB + tableName + "/reg_count.dat";
   std::ifstream rCount(reg_count_file_path);
   if (!rCount.is_open())
   {
@@ -124,6 +112,6 @@ int getRegCount(const char* table_name)
   rCount.close();
   count = stoi(data);
 
-  return count - 1;
+  return count;
 }
 }    // namespace ftools

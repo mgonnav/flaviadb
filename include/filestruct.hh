@@ -11,27 +11,29 @@
 
 namespace ftools
 {
-bool dirExists(const char* const path);
+bool dirExists(std::string const& path);
 
-bool fileExists(const char* const path);
+bool fileExists(std::string const& path);
 
-char* getString(std::vector<const char*> strings);
+void createFolder(std::string const& folder_name);
 
-char* getTablePath(const char* tableName);
+// char* getString(std::vector<const char*> strings);
 
-char* getRegistersPath(const char* tableName);
+std::string getTablePath(std::string const& tableName);
 
-char* getIndexesPath(const char* tableName);
+std::string getRegistersPath(std::string const& tableName);
 
-char* getMetadataPath(const char* tableName);
+std::string getIndexesPath(std::string const& tableName);
 
-char* getRegCountPath(const char* table_name);
+std::string getMetadataPath(std::string const& tableName);
+
+std::string getRegCountPath(std::string const& table_name);
 
 std::string getCurrentTimeAsString();
 
-char* getNewRegPath(const char* table_name);
+std::string getNewRegPath(std::string const& table_name);
 
-int getRegCount(const char* table_name);
+int getRegCount(std::string const& table_name);
 }    // namespace ftools
 
 #endif    // _FILE_TOOLS

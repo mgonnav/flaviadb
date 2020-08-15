@@ -18,18 +18,10 @@ namespace pu = printUtils;
 
 int main()
 {
-  if (ft::dirExists(FLAVIADB_DIR))
-    if (mkdir(FLAVIADB_DIR, S_IRWXU) == 0)
-    {
-      fprintf(stderr, "ERROR: Couldn't create .flaviadb/\n");
-      exit(0);
-    }
+  if (!ft::dirExists(FLAVIADB_DIR))
+    ft::createFolder(FLAVIADB_DIR);
   if (!ft::dirExists(FLAVIADB_TEST_DB))
-    if (mkdir(FLAVIADB_TEST_DB, S_IRWXU) != 0)
-    {
-      fprintf(stderr, "ERROR: coudn't create .flaviadb/test/\n");
-      exit(0);
-    }
+    ft::createFolder(FLAVIADB_TEST_DB);
 
   pu::print_welcome_message();
 
@@ -54,7 +46,7 @@ int main()
 
       if (result->isValid() && result->size())
       {
-        for (auto i = 0; i < result->size(); i++)
+        for (size_t i = 0; i < result->size(); i++)
         {
           const hsql::SQLStatement* statement = result->getStatement(i);
 
@@ -141,7 +133,7 @@ int main()
           {
             hsql::CreateStatement* create_stmt =
                 (hsql::CreateStatement*)statement;
-            char* table_path = ft::getTablePath(create_stmt->tableName);
+            std::string table_path = ft::getTablePath(create_stmt->tableName);
 
             if (create_stmt->type == hsql::kCreateTable)
             {
