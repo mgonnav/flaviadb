@@ -61,7 +61,8 @@ void Table::loadStoredRegisters()
       reg_data.push_back(data);
     }
 
-    this->registers->insert(std::make_pair<std::string, Register*>(reg.path().filename().string(), new Register(reg_data)));
+    this->registers->insert(std::make_pair<std::string, Register*>(
+        reg.path().filename().string(), new Register(reg_data)));
   }
 }
 
@@ -238,7 +239,8 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       {
         if (column->type.data_type == hsql::DataType::CHAR)
         {
-          if (strlen(value->name) <= column->type.length) {
+          if (strlen(value->name) <= column->type.length)
+          {
             new_reg_data.push_back(value->name);
             new_reg << value->name;
           }
@@ -267,7 +269,8 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
           }
 
           struct tm tm = {0};
-          if (strptime(value->name, DATE_FORMAT, &tm)) {
+          if (strptime(value->name, DATE_FORMAT, &tm))
+          {
             new_reg_data.push_back(value->name);
             new_reg << value->name;
           }
@@ -312,9 +315,11 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       new_reg << "\t";
     }
     this->reg_count++;
-    this->registers->insert(std::make_pair<std::string, Register*>(std::to_string(this->reg_count) + ".sqlito", new Register(new_reg_data)));
+    this->registers->insert(std::make_pair<std::string, Register*>(
+        std::to_string(this->reg_count) + ".sqlito",
+        new Register(new_reg_data)));
     new_reg.close();
-  }   // TODO: REFACTOR ERRORS
+  }    // TODO: REFACTOR ERRORS
 
   std::ifstream file_to_index(reg_file);
   std::vector<std::string> reg_data();
@@ -337,8 +342,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
           mkdir(idx_folder.c_str(), S_IRWXU);
 
           std::ofstream indexed_file(
-              idx_folder + std::to_string(this->reg_count) +
-              ".sqlito");
+              idx_folder + std::to_string(this->reg_count) + ".sqlito");
           indexed_file.close();
         }
       }
@@ -426,8 +430,9 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
     {
       if (strcmp(index->name, stmt->whereClause->expr->name) == 0)
       {
-        std::string indexed_data = this->indexes_path + std::string(index->name) + "/" +
-                             std::to_string(stmt->whereClause->expr2->ival);
+        std::string indexed_data =
+            this->indexes_path + std::string(index->name) + "/" +
+            std::to_string(stmt->whereClause->expr2->ival);
         if (ft::dirExists(indexed_data))
         {
           // COLLECT DATA FROM ALL REGS
@@ -586,13 +591,20 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     // WHERE CLAUSE
     if (compare_where(column_type, reg_data[where_column_pos], stmt->where))
     {
+      auto reg_to_update = this->registers->at(reg.path().filename());
+
       regs_to_update_path.push_back(reg.path());
       std::string old_value = reg_data[update_column_pos];
       if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
-        reg_data[update_column_pos] = stmt->updates->at(0)->value->name;
+      {
+        reg_data[update_column_pos] = reg_to_update->data.at(update_column_pos) =
+            stmt->updates->at(0)->value->name;
+      }
       else
-        reg_data[update_column_pos] =
+      {
+        reg_data[update_column_pos] = reg_to_update->data.at(update_column_pos) =
             std::to_string(stmt->updates->at(0)->value->ival);
+      }
 
       regs_data.push_back(reg_data);
 
@@ -679,8 +691,8 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
           const auto col = this->columns->at(i);
           if (strcmp(index->name, col->name) == 0)
           {
-            std::string indexed_reg_folder = this->indexes_path + index->name + "/" +
-                               reg_data[i] + "/";
+            std::string indexed_reg_folder =
+                this->indexes_path + index->name + "/" + reg_data[i] + "/";
 
             std::string indexed_reg_path =
                 indexed_reg_folder + reg.path().filename().string();

@@ -2,6 +2,7 @@
 
 #include "Table.hh"
 #include "filestruct.hh"
+#include <fstream>
 #include <hsql/SQLParser.h>
 #include <string>
 using namespace std;
@@ -12,12 +13,33 @@ void assertCorrectPaths(Table const& table);
 void assertPathsExist(Table const& table);
 void assertPathsDontExist(Table const& table);
 void dropIfExists(string tableName);
+void readFromFileTo(vector<string>& values, string filename);
+string getFilenameWithExtension(string filename)
+{
+  return filename + ".sqlito";
+}
+
+string getFilenameWithExtension(int filename)
+{
+  return to_string(filename) + ".sqlito";
+}
+
+string getFilePath(Table const& tbl, string filename)
+{
+  return tbl.regs_path + getFilenameWithExtension(filename);
+}
+
+string getFilePath(Table const& tbl, int filename)
+{
+  return tbl.regs_path + getFilenameWithExtension(filename);
+}
 
 TEST(CreateAndDropTableTest)
 {
   auto result = new hsql::SQLParserResult;
   hsql::SQLParser::parse(
-      "CREATE TABLE createTable (id int, name char(10), birthdate date);", result);
+      "CREATE TABLE createTable (id int, name char(10), birthdate date);",
+      result);
   auto stmt = (hsql::CreateStatement*)result->getStatement(0);
 
   dropIfExists("createTable");
@@ -107,26 +129,31 @@ void assertPathsExist(Table const& table)
 TEST(FailConstructingNonExistingTable)
 {
   unique_ptr<Table> tbl;
-  try {
+  try
+  {
     tbl = make_unique<Table>("nonExistingTableName");
   }
-  catch (invalid_argument& e) {
+  catch (invalid_argument& e)
+  {
     ASSERT_NULL(tbl);
   }
 }
 
-TEST(InsertRecordTest) { 
+TEST(InsertRecordTest)
+{
   auto tbl = make_unique<Table>("testTable");
 
   auto result = new hsql::SQLParserResult;
-  hsql::SQLParser::parse("INSERT INTO testTable VALUES (333, 'testName', '07-07-2001');", result);
-  auto stmt = (hsql::InsertStatement*) result->getStatement(0);
+  hsql::SQLParser::parse(
+      "INSERT INTO testTable VALUES (333, 'testName', '07-07-2001');", result);
+  auto stmt = (hsql::InsertStatement*)result->getStatement(0);
 
   int expected_new_reg_count = tbl->registers->size() + 1;
   tbl->insert_record(stmt);
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
 
-  auto inserted_register = tbl->registers->at(std::to_string(tbl->reg_count) + ".sqlito");
+  auto inserted_register =
+      tbl->registers->at(getFilenameWithExtension(tbl->reg_count));
 
   auto inserted_register_id = inserted_register->data.at(0);
   ASSERT_STREQ("333", inserted_register_id);
@@ -138,16 +165,73 @@ TEST(InsertRecordTest) {
   ASSERT_STREQ("07-07-2001", inserted_register_date);
 }
 
-TEST(DeleteRecordsTest) {
+TEST(UpdateRecordsTest)
+{
   auto tbl = make_unique<Table>("testTable");
 
   auto result = new hsql::SQLParserResult;
-  hsql::SQLParser::parse("DELETE FROM testTable WHERE id = 333;", result);
-  auto stmt = (hsql::DeleteStatement*) result->getStatement(0);
+  hsql::SQLParser::parse("UPDATE testTable SET id = 777 WHERE id = 333;",
+                         result);
+  auto stmt = (hsql::UpdateStatement*)result->getStatement(0);
+
+  int expected_new_reg_count = tbl->registers->size();
+  tbl->update_records(stmt);
+
+  ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
+
+  auto it = tbl->registers->find(getFilenameWithExtension(tbl->reg_count));
+  ASSERT_TRUE(it != tbl->registers->end());
+
+  auto updated_register =
+      tbl->registers->at(getFilenameWithExtension(tbl->reg_count));
+  vector<string> stored_data{};
+  readFromFileTo(stored_data, getFilePath(*tbl, tbl->reg_count));
+
+  auto updated_register_id = updated_register->data.at(0);
+  ASSERT_STREQ("777", updated_register_id);
+  ASSERT_STREQ(stored_data.at(0), updated_register_id);
+
+  auto updated_register_name = updated_register->data.at(1);
+  ASSERT_STREQ("testName", updated_register_name);
+  ASSERT_STREQ(stored_data.at(1), updated_register_name);
+
+  auto updated_register_date = updated_register->data.at(2);
+  ASSERT_STREQ("07-07-2001", updated_register_date);
+  ASSERT_STREQ(stored_data.at(2), updated_register_date);
+}
+
+void readFromFileTo(vector<string>& values, string filename)
+{
+  ifstream inFile(filename);
+
+  if (!inFile.is_open())
+  {
+    cout << "Couldn't open file " << filename << "\n";
+    exit(1);
+  }
+
+  string data;
+  while (getline(inFile, data, '\t'))
+  {
+    values.push_back(data);
+  }
+}
+
+TEST(DeleteRecordsTest)
+{
+  auto tbl = make_unique<Table>("testTable");
+
+  auto result = new hsql::SQLParserResult;
+  hsql::SQLParser::parse("DELETE FROM testTable WHERE id = 777;", result);
+  auto stmt = (hsql::DeleteStatement*)result->getStatement(0);
 
   int expected_new_reg_count = tbl->registers->size() - 1;
   tbl->delete_records(stmt);
+
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
+
+  auto it = tbl->registers->find(getFilenameWithExtension(tbl->reg_count));
+  ASSERT_TRUE(it == tbl->registers->end());
 }
 
 TEST_MAIN();
