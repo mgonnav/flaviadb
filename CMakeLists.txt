@@ -16,3 +16,5 @@ add_executable(query_run query_run.cc src/Table.cc src/filestruct.cc src/printut
 
 target_link_libraries(flaviadb readline sqlparser)
 target_link_libraries(query_run sqlparser)
+
+target_compile_options(flaviadb PRIVATE -Wall -Wextra)
