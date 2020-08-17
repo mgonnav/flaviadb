@@ -38,8 +38,7 @@ void Table::loadIndexes()
 {
   for (const auto& reg : fs::directory_iterator(this->indexes_path))
   {
-    char* idx_name = new char[strlen(reg.path().filename().c_str())];
-    strcpy(idx_name, reg.path().filename().c_str());
+    std::string idx_name = reg.path().filename();
     indexes->push_back(new Index(idx_name));
   }
 }
@@ -304,7 +303,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
     {
       for (const auto& index : *this->indexes)
       {
-        if (strcmp(index->name, col->name) == 0)
+        if (index->name == std::string(col->name))
         {
           std::string idx_folder =
               this->indexes_path + index->name + "/" + data + "/";
@@ -388,7 +387,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
   {
     for (const auto& index : *this->indexes)
     {
-      if (strcmp(index->name, stmt->whereClause->expr->name) == 0)
+      if (index->name == std::string(stmt->whereClause->expr->name))
       {
         std::string indexed_data =
             this->indexes_path + std::string(index->name) + "/" +
@@ -521,7 +520,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
 
   Index* updated_index = nullptr;
   for (const auto& index : *this->indexes)
-    if (strcmp(index->name, update_column->name) == 0)
+    if (index->name == std::string(update_column->name))
       updated_index = index;
 
   std::vector<std::string> regs_to_update_path;
@@ -644,7 +643,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
         for (size_t i = 0; i < this->columns->size(); i++)
         {
           const auto col = this->columns->at(i);
-          if (strcmp(index->name, col->name) == 0)
+          if (index->name == std::string(col->name))
           {
             std::string indexed_reg_folder =
                 this->indexes_path + index->name + "/" + reg_data[i] + "/";
@@ -701,7 +700,7 @@ bool Table::create_index(std::string column)
 
   for (const auto index : *this->indexes)
   {
-    if (strcmp(index->name, column.c_str()) == 0)
+    if (index->name == column)
       throw DBException{INDEX_ALREADY_EXISTS, this->name, column};
   }
 

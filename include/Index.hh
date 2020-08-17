@@ -5,10 +5,10 @@
 
 struct Index
 {
-  Index(const char* name) { this->name = name; }
-  ~Index() { delete this->name; }
+  std::string name;
 
-  const char* name;
+  Index(std::string name) : name(name) {}
+  ~Index() {}
 };
 
 #endif    // _INDEX_HH
