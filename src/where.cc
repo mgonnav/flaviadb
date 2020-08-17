@@ -111,11 +111,7 @@ bool valid_where(const hsql::Expr* where, int* where_column_pos,
     }
 
   if (!field_exists)
-  {
-    fprintf(stderr, "ERROR: Column %s doesn't exist in table %s.\n",
-            where->expr->name, table->name);
-    return 0;
-  }
+    throw DBException{COLUMN_NOT_IN_TABLE, table->name, where->expr->name};
 
   // Check column data type and literal's data type match
   if ((where->expr2->type == hsql::kExprLiteralString &&
@@ -123,31 +119,16 @@ bool valid_where(const hsql::Expr* where, int* where_column_pos,
        (*column_type)->data_type != hsql::DataType::DATE) ||
       (where->expr2->type == hsql::kExprLiteralInt &&
        (*column_type)->data_type != hsql::DataType::INT))
-  {
-    fprintf(stderr, "ERROR: Column and expression's types don't match.\n");
-    return 0;
-  }
+    throw DBException{INVALID_DATA_TYPE, table->name, where->expr->name};
 
   if ((*column_type)->data_type == hsql::DataType::DATE)
   {
     if (strlen(where->expr2->name) > 10)
-    {
-      fprintf(stderr,
-              "ERROR: '%s' isn't a valid date or isn't a date. Max YEAR "
-              "value supported is 9999.\n",
-              where->expr2->name);
-      return 0;
-    }
+      throw DBException{INVALID_DATE, table->name, where->expr2->name};
 
     struct tm tm = {0};
     if (!strptime(where->expr2->name, DATE_FORMAT, &tm))
-    {
-      fprintf(stderr,
-              "ERROR: Right hand expression isn't a correctly formatted "
-              "date. Please use %s.\n",
-              DATE_FORMAT);
-      return 0;
-    }
+      throw DBException{INVALID_DATE, table->name, where->expr->name};
   }
 
   return 1;
