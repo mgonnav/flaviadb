@@ -1,5 +1,4 @@
-#ifndef _DBEXCEPTION
-#define _DBEXCEPTION
+#pragma once
 
 #include "flaviadb_definitions.hh"
 #include <exception>
@@ -117,5 +116,3 @@ inline const char* DBException::what() const throw()
 {
   return error_message.c_str();
 }
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef TABLE_HH
-#define TABLE_HH
+#pragma once
 
 #include "DBException.hh"
 #include "Index.hh"
@@ -63,5 +62,3 @@ private:
   void loadColumnData(hsql::ColumnDefinition*& column);
   hsql::ColumnType getColumnType();
 };
-
-#endif    // TABLE_HH

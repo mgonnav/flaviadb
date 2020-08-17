@@ -1,5 +1,4 @@
-#ifndef _FILE_TOOLS
-#define _FILE_TOOLS
+#pragma once
 
 #include "flaviadb_definitions.hh"
 #include <cstring>
@@ -31,5 +30,3 @@ std::string getNewRegPath(std::string const& table_name);
 
 int getRegCount(std::string const& table_name);
 }
-
-#endif

@@ -1,5 +1,5 @@
-#ifndef _INDEX_HH
-#define _INDEX_HH
+#pragma once
+
 #include <cstring>
 #include <string>
 
@@ -10,5 +10,3 @@ struct Index
   Index(std::string name) : name(name) {}
   ~Index() {}
 };
-
-#endif    // _INDEX_HH
