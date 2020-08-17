@@ -3,6 +3,6 @@
 
 #define FLAVIADB_DIR "/home/mgonnav/.flaviadb/"
 #define FLAVIADB_TEST_DB "/home/mgonnav/.flaviadb/test/"
-#define METADATA_PATH "/home/mgonnav/.flaviadb/test/metadata.dat"
+#define DATE_FORMAT "%d-%m-%Y"
 
-#endif    // _FLAVIADB_PATHS
+#endif

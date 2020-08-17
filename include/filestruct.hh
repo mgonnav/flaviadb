@@ -1,7 +1,7 @@
 #ifndef _FILE_TOOLS
 #define _FILE_TOOLS
 
-#include "flaviadb_paths.hh"
+#include "flaviadb_definitions.hh"
 #include <cstring>
 #include <fstream>
 #include <stdio.h>

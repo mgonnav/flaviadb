@@ -7,7 +7,7 @@
 
 #include "Table.hh"
 #include "filestruct.hh"
-#include "flaviadb_paths.hh"
+#include "flaviadb_definitions.hh"
 #include "printutils.hh"
 
 namespace fs = std::filesystem;
