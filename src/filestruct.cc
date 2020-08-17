@@ -100,4 +100,4 @@ int getRegCount(std::string const& tableName)
 
   return count;
 }
-}    // namespace ftools
+}

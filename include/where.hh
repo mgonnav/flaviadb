@@ -2,7 +2,6 @@
 
 #include "Table.hh"
 #include "hsql/SQLParser.h"
-#include <cstring>
 
 int compare_date(std::string data, const char* expr);
 bool compare_helper(int comparison_result, hsql::OperatorType opType);

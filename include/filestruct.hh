@@ -3,10 +3,8 @@
 #include "flaviadb_definitions.hh"
 #include <cstring>
 #include <fstream>
-#include <stdio.h>
 #include <string>
 #include <sys/stat.h>
-#include <vector>
 
 namespace ftools
 {
