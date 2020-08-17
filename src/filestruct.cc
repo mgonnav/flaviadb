@@ -58,20 +58,6 @@ std::string getRegCountPath(std::string const& tableName)
   return FLAVIADB_TEST_DB + tableName + "/reg_count.dat";
 }
 
-std::string getCurrentTimeAsString()
-{
-  time_t rawtime;
-  struct tm* timeinfo;
-  char buffer[80];
-
-  time(&rawtime);
-  timeinfo = localtime(&rawtime);
-  strftime(buffer, sizeof(buffer), "%d%m%Y%H%M%S", timeinfo);
-  std::string str(buffer);
-
-  return str;
-}
-
 std::string getNewRegPath(std::string const& tableName)
 {
   std::string reg_count_file_path = FLAVIADB_TEST_DB + tableName + "/reg_count.dat";
