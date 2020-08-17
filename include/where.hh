@@ -5,8 +5,8 @@
 #include "hsql/SQLParser.h"
 #include <cstring>
 
-int compare_date(const char* data, const char* expr);
-bool compare_helper(short int comparison_result, hsql::OperatorType opType);
+int compare_date(std::string data, const char* expr);
+bool compare_helper(int comparison_result, hsql::OperatorType opType);
 bool compare_where(hsql::ColumnType* column_type, std::string data,
                    const hsql::Expr* where);
 bool valid_where(const hsql::Expr* where, int* column_pos,

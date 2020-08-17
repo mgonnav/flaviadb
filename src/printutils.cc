@@ -80,25 +80,20 @@ void print_select_result(std::vector<hsql::Expr*>* fields,
     print_row(&row, fields_width);
 }
 
-char* dataType_to_char(hsql::ColumnType type)
+std::string dataTypeToString(hsql::ColumnType type)
 {
-  char* type_char = new char[10];
   switch (type.data_type)
   {
   case hsql::DataType::CHAR:
-    strcpy(type_char, "CHAR(");
-    strcat(type_char, std::to_string(type.length).c_str());
-    strcat(type_char, ")");
+    return "CHAR(" + std::to_string(type.length) + ")";
     break;
   case hsql::DataType::INT:
-    strcpy(type_char, "INT");
-    break;
+    return "INT";
   case hsql::DataType::DATE:
-    strcpy(type_char, "DATE");
-    break;
+    return "DATE";
+  default:
+    return "UNKNOWN";
   }
-
-  return type_char;
 }
 
 void print_tables_list(std::vector<std::string>& tables)
@@ -149,8 +144,8 @@ void print_table_desc(Table* table)
 
   // Find max width for second column
   for (const auto& col : *table->columns)
-    if (fields_width[1] <= strlen(dataType_to_char(col->type)))
-      fields_width[1] = strlen(dataType_to_char(col->type)) + 2;
+    if (fields_width[1] <= dataTypeToString(col->type).size())
+      fields_width[1] = dataTypeToString(col->type).size() + 2;
 
   // header[0] has the first row with the column names
   std::vector<std::vector<std::string>> header;
@@ -172,7 +167,7 @@ void print_table_desc(Table* table)
   {
     cols_info.push_back(std::vector<std::string>());
     cols_info.back().push_back(std::string(col->name));
-    cols_info.back().push_back(std::string(dataType_to_char(col->type)));
+    cols_info.back().push_back(dataTypeToString(col->type));
     print_row(&cols_info.back(), &fields_width);
   }
   std::cout << "\n";

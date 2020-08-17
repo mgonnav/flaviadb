@@ -1,11 +1,11 @@
 #include "where.hh"
 
-int compare_date(const char* data, const char* expr)
+int compare_date(std::string data, const char* expr)
 {
   struct tm data_time = {0};
   struct tm expr_time = {0};
 
-  strptime(data, DATE_FORMAT, &data_time);
+  strptime(data.c_str(), DATE_FORMAT, &data_time);
   strptime(expr, DATE_FORMAT, &expr_time);
 
   double diff = difftime(mktime(&data_time), mktime(&expr_time));
@@ -17,7 +17,7 @@ int compare_date(const char* data, const char* expr)
   return 1;
 }
 
-bool compare_helper(short int comparison_result, hsql::OperatorType opType)
+bool compare_helper(int comparison_result, hsql::OperatorType opType)
 {
   switch (opType)
   {
@@ -52,7 +52,7 @@ bool compare_where(hsql::ColumnType* column_type, std::string data,
     comparison = strcmp(data.c_str(), where->expr2->name);
     break;
   case hsql::DataType::DATE:
-    comparison = compare_date(data.c_str(), where->expr2->name);
+    comparison = compare_date(data, where->expr2->name);
     break;
   case hsql::DataType::INT:
     comparison = stoi(data) - where->expr2->ival;
