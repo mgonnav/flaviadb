@@ -70,7 +70,7 @@ void dropIfExists(string tableName)
   {
     tbl = make_unique<Table>(tableName);
   }
-  catch (invalid_argument& e)
+  catch (const DBException& e)
   {
   }
 
@@ -133,7 +133,7 @@ TEST(FailConstructingNonExistingTable)
   {
     tbl = make_unique<Table>("nonExistingTableName");
   }
-  catch (invalid_argument& e)
+  catch (const DBException& e)
   {
     ASSERT_NULL(tbl);
   }

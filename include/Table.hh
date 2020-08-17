@@ -1,7 +1,7 @@
 #ifndef TABLE_HH
 #define TABLE_HH
 
-#include "DB_exception.hh"
+#include "DBException.hh"
 #include "Index.hh"
 #include "Register.hh"
 #include "Table.hh"

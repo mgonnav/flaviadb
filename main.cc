@@ -1,3 +1,8 @@
+#include "DBException.hh"
+#include "Table.hh"
+#include "filestruct.hh"
+#include "flaviadb_definitions.hh"
+#include "printutils.hh"
 #include <filesystem>
 #include <fstream>                  // ifstream, ofstream
 #include <hsql/SQLParser.h>         // Include SQL Parser
@@ -6,11 +11,6 @@
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <sys/stat.h>    // stat, mkdir
-
-#include "Table.hh"
-#include "filestruct.hh"
-#include "flaviadb_paths.hh"
-#include "printutils.hh"
 
 namespace fs = std::filesystem;
 namespace ft = ftools;
@@ -65,7 +65,7 @@ int main()
                 stored_tbl->show_records(select_stmt);
                 delete stored_tbl;
               }
-              catch (const std::exception& e)
+              catch (const DBException& e)
               {
                 std::cout << e.what() << "\n";
               }
@@ -86,7 +86,7 @@ int main()
               stored_tbl->insert_record(insert_stmt);
               delete stored_tbl;
             }
-            catch (const std::exception& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -104,7 +104,7 @@ int main()
               stored_tbl->update_records(update_stmt);
               delete stored_tbl;
             }
-            catch (const std::exception& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -122,7 +122,7 @@ int main()
               stored_tbl->delete_records(delete_stmt);
               delete stored_tbl;
             }
-            catch (const std::exception& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -155,7 +155,7 @@ int main()
                 stored_tbl->create_index(create_stmt->columns->at(0)->name);
                 delete stored_tbl;
               }
-              catch (const std::exception& e)
+              catch (const DBException& e)
               {
                 std::cout << e.what() << "\n";
               }
@@ -173,7 +173,7 @@ int main()
               stored_tbl->drop_table();
               delete stored_tbl;
             }
-            catch (const std::exception& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -199,7 +199,7 @@ int main()
                 pu::print_table_desc(stored_tbl);
                 delete stored_tbl;
               }
-              catch (const std::exception& e)
+              catch (const DBException& e)
               {
                 std::cout << e.what() << "\n";
               }

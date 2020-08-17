@@ -31,8 +31,7 @@ void Table::loadPaths()
 void Table::checkTableExists()
 {
   if (!ft::dirExists(this->path))
-    throw std::invalid_argument("Table " + std::string(this->name) +
-                                " doesn't exist.\n");
+    throw DBException{NON_EXISTING_TABLE, this->name};
 }
 
 void Table::loadIndexes()
@@ -140,7 +139,7 @@ void Table::openMetadataFile()
 {
   this->metadata_file.open(this->metadata_path);
   if (!this->metadata_file.is_open())
-    throw DB_exception("ERROR: metadata.dat doesn't exist.\n");
+    throw DBException{UNREADABLE_METADATA};
 }
 
 void Table::loadMetadataHeader()
@@ -156,8 +155,7 @@ void Table::loadTableName()
   getline(this->metadata_file, metadata_table_name, '\t');
 
   if (this->name != metadata_table_name)
-    throw DB_exception(
-        "ERROR: Metadata's stored table name doesn't match requested table.\n");
+    throw DBException{DIFFERENT_METADATA_NAME};
 }
 
 void Table::loadColumnCount()
@@ -214,17 +212,9 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
   else
   {
     if (stmt->values->size() < this->columns->size())
-    {
-      fprintf(stderr,
-              "ERROR: If you are ignoring some values, you need to provide the "
-              "columns where stated values will be inserted\n");
-      return 0;
-    }
+      throw DBException{MISSING_VALUES};
     if (stmt->values->size() > this->columns->size())
-    {
-      fprintf(stderr, "ERROR: Received more values than columns in table.\n");
-      return 0;
-    }
+      throw DBException{TOO_MANY_VALUES};
 
     // Create filename
     reg_file = ft::getNewRegPath(this->name);
@@ -246,26 +236,18 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
           }
           else
           {
-            fprintf(stderr,
-                    "ERROR: CHAR value inserted for column %s is too big. Max "
-                    "length is %ld.\n",
-                    column->name, column->type.length);
             new_reg.close();
             remove(reg_file.c_str());
-            return 0;
+            throw DBException{CHAR_TOO_BIG, this->name, column->name};
           }
         }
         else if (column->type.data_type == hsql::DataType::DATE)
         {
           if (strlen(value->name) > 10)
           {
-            fprintf(stderr,
-                    "ERROR: '%s' isn't a valid date or isn't a date. Max YEAR "
-                    "value supported is 9999.\n",
-                    value->name);
             new_reg.close();
             remove(reg_file.c_str());
-            return 0;
+            throw DBException{INVALID_DATE, this->name, value->name};
           }
 
           struct tm tm = {0};
@@ -276,24 +258,16 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
           }
           else
           {
-            fprintf(stderr,
-                    "ERROR: '%s' isn't correctly formatted or isn't a date. "
-                    "Please use %s format.\n",
-                    value->name, DATE_FORMAT);
             new_reg.close();
             remove(reg_file.c_str());
-            return 0;
+            throw DBException(INVALID_DATE, this->name, value->name);
           }
         }
         else
         {
-          fprintf(stderr,
-                  "ERROR: %s.%s data type doesn't match received value's data "
-                  "type.\n",
-                  this->name, column->name);
           new_reg.close();
           remove(reg_file.c_str());
-          return 0;
+          throw DBException{INVALID_DATA_TYPE, this->name, column->name};
         }
       }
       else if (value->type == hsql::kExprLiteralInt &&
@@ -304,13 +278,9 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       }
       else
       {
-        fprintf(stderr,
-                "ERROR: %s.%s data type doesn't match received value's data "
-                "type.\n",
-                this->name, column->name);
         new_reg.close();
         remove(reg_file.c_str());
-        return 0;
+        throw DBException{INVALID_DATA_TYPE, this->name, column->name};
       }
       new_reg << "\t";
     }
@@ -319,7 +289,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
         std::to_string(this->reg_count) + ".sqlito",
         new Register(new_reg_data)));
     new_reg.close();
-  }    // TODO: REFACTOR ERRORS
+  }
 
   std::ifstream file_to_index(reg_file);
   std::vector<std::string> reg_data();
@@ -388,18 +358,12 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
     {
       // If field is *, error
       if (field->type == hsql::kExprStar)
-      {
-        fprintf(stderr, "ERROR: Can't use * along with other fields.\n");
-        return 0;
-      }
+        throw DBException(STAR_NOT_ALONE);
 
       // If field is a duplicate, error
       tmp.insert(std::string(field->name));
       if (tmp.size() != (&field - &stmt->selectList->at(0)) + 1)
-      {
-        fprintf(stderr, "ERROR: Duplicate fields detected in query.\n");
-        return 0;
-      }
+        throw DBException(REPEATED_FIELDS);
 
       // Assert requested field exists. If it does, add needed data
       // to fields_width & requested_columns_order
@@ -416,11 +380,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
       }
 
       if (!field_exists)
-      {
-        fprintf(stderr, "ERROR: Column %s not found in table %s.\n",
-                field->name, this->name);
-        return 0;
-      }
+        throw DBException{COLUMN_NOT_IN_TABLE, this->name, field->name};
     }
   }
 
@@ -549,11 +509,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     }
 
   if (!column_exists)
-  {
-    fprintf(stderr, "ERROR: Column %s doesn't exist in table %s.\n",
-            stmt->updates->at(0)->column, this->name);
-    return 0;
-  }
+    throw DBException{COLUMN_NOT_IN_TABLE, this->name, stmt->updates->at(0)->column};
 
   // Check assign value is correct
   if (((update_column->type.data_type == hsql::DataType::CHAR ||
@@ -561,10 +517,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
        stmt->updates->at(0)->value->type != hsql::kExprLiteralString) ||
       (update_column->type.data_type == hsql::DataType::INT &&
        stmt->updates->at(0)->value->type != hsql::kExprLiteralInt))
-  {
-    fprintf(stderr, "ERROR: Update column and value's types don't match.\n");
-    return 0;
-  }
+    throw DBException{NON_MATCHING_UPDATE_DATA_TYPE};
 
   Index* updated_index = nullptr;
   for (const auto& index : *this->indexes)
@@ -597,13 +550,15 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
       std::string old_value = reg_data[update_column_pos];
       if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
       {
-        reg_data[update_column_pos] = reg_to_update->data.at(update_column_pos) =
-            stmt->updates->at(0)->value->name;
+        reg_data[update_column_pos] =
+            reg_to_update->data.at(update_column_pos) =
+                stmt->updates->at(0)->value->name;
       }
       else
       {
-        reg_data[update_column_pos] = reg_to_update->data.at(update_column_pos) =
-            std::to_string(stmt->updates->at(0)->value->ival);
+        reg_data[update_column_pos] =
+            reg_to_update->data.at(update_column_pos) =
+                std::to_string(stmt->updates->at(0)->value->ival);
       }
 
       regs_data.push_back(reg_data);
@@ -742,27 +697,16 @@ bool Table::create_index(std::string column)
   }
 
   if (!field_exists)
-  {
-    fprintf(stderr, "ERROR: Column %s not found in table %s.\n", column,
-            this->name);
-    return 0;
-  }
+    throw DBException{COLUMN_NOT_IN_TABLE, this->name, column};
 
   for (const auto index : *this->indexes)
   {
     if (strcmp(index->name, column.c_str()) == 0)
-    {
-      fprintf(stderr, "ERROR: There's already an index on column %s.\n",
-              column);
-      return 0;
-    }
+      throw DBException{INDEX_ALREADY_EXISTS, this->name, column};
   }
 
   if (this->columns->at(column_pos)->type.data_type != hsql::DataType::INT)
-  {
-    fprintf(stderr, "ERROR: Indexed column must be of type INT.\n");
-    return 0;
-  }
+    throw DBException{INDEX_NOT_INT};
 
   // TODO: add support for other datatypes
   // Create tree
