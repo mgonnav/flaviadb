@@ -517,7 +517,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
        stmt->updates->at(0)->value->type != hsql::kExprLiteralString) ||
       (update_column->type.data_type == hsql::DataType::INT &&
        stmt->updates->at(0)->value->type != hsql::kExprLiteralInt))
-    throw DBException{NON_MATCHING_UPDATE_DATA_TYPE};
+    throw DBException{INVALID_DATA_TYPE, this->name, stmt->updates->at(0)->column};
 
   Index* updated_index = nullptr;
   for (const auto& index : *this->indexes)

@@ -86,12 +86,6 @@ TEST(ColumnNotInTableExceptionTest)
       e.what());
 }
 
-TEST(NonMatchingUpdateDataTypeExceptionTest)
-{
-  DBException e{NON_MATCHING_UPDATE_DATA_TYPE};
-  ASSERT_STREQ("ERROR: Update column and value's types don't match.\n", e.what());
-}
-
 TEST(IndexAlreadyExistsExceptionTest)
 {
   DBException e{INDEX_ALREADY_EXISTS, "testTableName", "testColumnName"};

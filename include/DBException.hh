@@ -22,8 +22,6 @@ enum ErrorCode
   REPEATED_FIELDS,
   COLUMN_NOT_IN_TABLE,
 
-  NON_MATCHING_UPDATE_DATA_TYPE,
-
   INDEX_ALREADY_EXISTS,
   INDEX_NOT_INT,
 };
@@ -105,8 +103,6 @@ inline std::string DBException::formatErrorMessage()
   case COLUMN_NOT_IN_TABLE:
     return "ERROR: Column " + error_column + " not found in table " +
            error_table + ".\n";
-  case NON_MATCHING_UPDATE_DATA_TYPE:
-    return "ERROR: Update column and value's types don't match.\n";
   case INDEX_ALREADY_EXISTS:
     return "ERROR: There's already an index on column " + error_column + ".\n";
   case INDEX_NOT_INT:
