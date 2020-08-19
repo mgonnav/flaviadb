@@ -588,31 +588,18 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
   int where_column_pos;
   hsql::ColumnType* column_type;
   if (!valid_where(stmt->expr, &where_column_pos, &column_type, this))
-  {
     return 0;
-  }
 
-  std::vector<std::string> regs_to_delete_path;
-  // LOAD ALL REGS
-  for (const auto& reg : fs::directory_iterator(this->regs_path))
+  std::vector<std::string> regs_to_delete_filename;
+
+  for (auto reg_pair : *this->registers)
   {
-    // Load data in file to reg_data
-    std::ifstream data_file(reg.path());
-    std::vector<std::string> reg_data;
+    auto filename = reg_pair.first;
+    auto reg_data = reg_pair.second->data;
 
-    // Load each piece of data into reg_data
-    std::string data;
-    for (size_t i = 0; i < this->columns->size(); i++)
-    {
-      getline(data_file, data, '\t');
-      reg_data.push_back(data);
-    }
-
-    // WHERE CLAUSE
     if (compare_where(column_type, reg_data[where_column_pos], stmt->expr))
     {
-      regs_to_delete_path.push_back(reg.path());
-      this->registers->erase(reg.path().filename().string());
+      regs_to_delete_filename.push_back(filename);
       for (const auto& index : *this->indexes)
       {
         for (size_t i = 0; i < this->columns->size(); i++)
@@ -624,7 +611,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
                 this->indexes_path + index->name + "/" + reg_data[i] + "/";
 
             std::string indexed_reg_path =
-                indexed_reg_folder + reg.path().filename().string();
+                indexed_reg_folder + filename;
 
             remove(indexed_reg_path.c_str());
             if (fs::is_empty(fs::path(indexed_reg_folder)))
@@ -635,10 +622,12 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
     }
   }
 
-  for (const auto& path : regs_to_delete_path)
-    remove(path.c_str());
+  for (const auto& filename : regs_to_delete_filename) {
+    this->registers->erase(filename);
+    remove((this->regs_path + filename).c_str());
+  }
 
-  std::cout << "Deleted " << regs_to_delete_path.size() << " rows.\n";
+  std::cout << "Deleted " << regs_to_delete_filename.size() << " rows.\n";
   return 1;
 }
 
