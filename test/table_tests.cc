@@ -34,6 +34,16 @@ string getFilePath(Table const& tbl, int filename)
   return tbl.regs_path + getFilenameWithExtension(filename);
 }
 
+string getIndexedPath(Table const& tbl, string filename)
+{
+  return tbl.indexes_path + getFilenameWithExtension(filename);
+}
+
+string getIndexedPath(Table const& tbl, int filename)
+{
+  return tbl.indexes_path + getFilenameWithExtension(filename);
+}
+
 TEST(CreateAndDropTableTest)
 {
   dropIfExists("createTable");
@@ -163,6 +173,9 @@ TEST(InsertRecordTest)
 
   auto inserted_register_date = inserted_register->data.at(2);
   ASSERT_STREQ("07-07-2001", inserted_register_date);
+
+  string filename = getFilenameWithExtension(tbl->reg_count);
+  ASSERT_TRUE(ft::fileExists(tbl->regs_path + filename));
 }
 
 TEST(UpdateRecordsTest)
@@ -268,26 +281,58 @@ TEST(CreateIndexOnPopulatedTableTest)
   hsql::SQLParser::parse(
       "INSERT INTO indexedPopulatedTable VALUES (1, 'testName1', '01-01-2000');"
       "INSERT INTO indexedPopulatedTable VALUES (2, 'testName2', '02-01-2000');"
-      "INSERT INTO indexedPopulatedTable VALUES (3, 'testName3', '03-01-2000');",
+      "INSERT INTO indexedPopulatedTable VALUES (3, 'testName3', "
+      "'03-01-2000');",
       result);
 
-  for (const auto& stmt : result->getStatements()) {
+  for (const auto& stmt : result->getStatements())
     tbl->insert_record((hsql::InsertStatement*)stmt);
-  }
 
   tbl->create_index("id");
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/"));
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "1/"));
-  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "1/" +
-                             "1.sqlito"));
+  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "1/" + "1.sqlito"));
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "2/"));
-  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "2/" +
-                             "2.sqlito"));
+  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "2/" + "2.sqlito"));
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "3/"));
-  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "3/" +
-                             "3.sqlito"));
+  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "3/" + "3.sqlito"));
 
   dropIfExists("indexedPopulatedTable");
+}
+
+TEST(InsertRegisterToIndexedTableTest)
+{
+  dropIfExists("indexedTable");
+
+  auto result = new hsql::SQLParserResult;
+  hsql::SQLParser::parse("CREATE TABLE indexedTable (id int, name "
+                         "char(10), birthdate date);",
+                         result);
+  auto createStmt = (hsql::CreateStatement*)result->getStatement(0);
+
+  auto tbl = make_unique<Table>("indexedTable", createStmt->columns);
+
+  result->releaseStatements();
+  hsql::SQLParser::parse(
+      "INSERT INTO indexedTable VALUES (1, 'testName1', '01-01-2000');"
+      "INSERT INTO indexedTable VALUES (2, 'testName2', '02-01-2000');"
+      "INSERT INTO indexedTable VALUES (3, 'testName3', "
+      "'03-01-2000');",
+      result);
+
+  tbl->create_index("id");
+  for (const auto& stmt : result->getStatements())
+    tbl->insert_record((hsql::InsertStatement*)stmt);
+
+  ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/"));
+  ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "1/"));
+  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "1/" + "1.sqlito"));
+  ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "2/"));
+  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "2/" + "2.sqlito"));
+  ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "3/"));
+  ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "3/" + "3.sqlito"));
+
+  dropIfExists("indexedTable");
 }
 
 TEST_MAIN();
