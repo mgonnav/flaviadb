@@ -203,7 +203,10 @@ hsql::ColumnType Table::getColumnType()
 
 bool Table::insert_record(const hsql::InsertStatement* stmt)
 {
-  std::string reg_file;
+  fs::path reg_file;
+  std::string filename;
+  Register* inserted_reg = nullptr;
+
   if (stmt->columns != nullptr)
   {
     return 1;    // TODO: Insert on specific columns
@@ -217,6 +220,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
 
     // Create filename
     reg_file = ft::getNewRegPath(this->name);
+    filename = reg_file.filename();
 
     std::ofstream new_reg(reg_file);
     std::vector<std::string> new_reg_data;
@@ -287,17 +291,15 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
     this->registers->insert(std::make_pair<std::string, Register*>(
         std::to_string(this->reg_count) + ".sqlito",
         new Register(new_reg_data)));
+    inserted_reg =
+        this->registers->at(std::to_string(this->reg_count) + ".sqlito");
     new_reg.close();
   }
 
-  std::ifstream file_to_index(reg_file);
-  std::vector<std::string> reg_data();
-
-  // Load piece of data
-  std::string data;
-  for (const auto& col : *this->columns)
+  // Index new register
+  for (size_t i = 0; i < this->columns->size(); i++)
   {
-    getline(file_to_index, data, '\t');
+    auto col = this->columns->at(i);
 
     if (col->type.data_type == hsql::DataType::INT)
     {
@@ -305,13 +307,12 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       {
         if (index->name == std::string(col->name))
         {
-          std::string idx_folder =
-              this->indexes_path + index->name + "/" + data + "/";
+          std::string idx_folder = this->indexes_path + index->name + "/" +
+                                   inserted_reg->data.at(i) + "/";
 
           mkdir(idx_folder.c_str(), S_IRWXU);
 
-          std::ofstream indexed_file(
-              idx_folder + std::to_string(this->reg_count) + ".sqlito");
+          std::ofstream indexed_file(idx_folder + filename);
           indexed_file.close();
         }
       }
@@ -440,23 +441,18 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
 
   // COLLECT DATA FROM ALL REGS
   std::vector<std::vector<std::string>> regs_data;
-  for (const auto& reg : fs::directory_iterator(this->regs_path))
+  for (const auto& reg_pair : *this->registers)
   {
-    // Load data in file to reg_data
-    std::ifstream data_file(reg.path());
     std::vector<std::string> reg_data(stmt->selectList->size(), "");
-
-    // Load piece of data
-    std::string data;
+    const auto reg = reg_pair.second;
     bool satisfies_where = 1;
     for (size_t i = 0; i < this->columns->size(); i++)
     {
-      getline(data_file, data, '\t');
-
       // Find index of current field in the requested order
       auto field_pos = std::find(requested_columns_order.begin(),
                                  requested_columns_order.end(), i);
 
+      std::string data = reg->data.at(i);
       // When we reach desired column, set flag
       if (i == where_column_pos && stmt->whereClause != nullptr)
         if (!compare_where(column_type, data, stmt->whereClause))
@@ -508,7 +504,8 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     }
 
   if (!column_exists)
-    throw DBException{COLUMN_NOT_IN_TABLE, this->name, stmt->updates->at(0)->column};
+    throw DBException{COLUMN_NOT_IN_TABLE, this->name,
+                      stmt->updates->at(0)->column};
 
   // Check assign value is correct
   if (((update_column->type.data_type == hsql::DataType::CHAR ||
@@ -516,85 +513,63 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
        stmt->updates->at(0)->value->type != hsql::kExprLiteralString) ||
       (update_column->type.data_type == hsql::DataType::INT &&
        stmt->updates->at(0)->value->type != hsql::kExprLiteralInt))
-    throw DBException{INVALID_DATA_TYPE, this->name, stmt->updates->at(0)->column};
+    throw DBException{INVALID_DATA_TYPE, this->name,
+                      stmt->updates->at(0)->column};
 
   Index* updated_index = nullptr;
   for (const auto& index : *this->indexes)
     if (index->name == std::string(update_column->name))
       updated_index = index;
 
-  std::vector<std::string> regs_to_update_path;
+  std::vector<std::string> regs_to_update_filename;
   std::vector<std::vector<std::string>> regs_data;
-  // LOAD ALL REGS
-  for (const auto& reg : fs::directory_iterator(this->regs_path))
+
+  for (const auto& reg_pair : *this->registers)
   {
-    // Load data in file to reg_data
-    std::ifstream data_file(reg.path());
-    std::vector<std::string> reg_data;
-
-    // Load each piece of data into reg_data
-    std::string data;
-    for (size_t i = 0; i < this->columns->size(); i++)
+    auto filename = reg_pair.first;
+    auto reg = reg_pair.second;
+    if (compare_where(column_type, reg->data.at(where_column_pos), stmt->where))
     {
-      getline(data_file, data, '\t');
-      reg_data.push_back(data);
-    }
-
-    // WHERE CLAUSE
-    if (compare_where(column_type, reg_data[where_column_pos], stmt->where))
-    {
-      auto reg_to_update = this->registers->at(reg.path().filename());
-
-      regs_to_update_path.push_back(reg.path());
-      std::string old_value = reg_data[update_column_pos];
+      regs_to_update_filename.push_back(filename);
+      std::string old_value = reg->data[update_column_pos];
       if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
-      {
-        reg_data[update_column_pos] =
-            reg_to_update->data.at(update_column_pos) =
-                stmt->updates->at(0)->value->name;
-      }
+        reg->data[update_column_pos] = stmt->updates->at(0)->value->name;
       else
-      {
-        reg_data[update_column_pos] =
-            reg_to_update->data.at(update_column_pos) =
-                std::to_string(stmt->updates->at(0)->value->ival);
-      }
+        reg->data[update_column_pos] =
+            std::to_string(stmt->updates->at(0)->value->ival);
 
-      regs_data.push_back(reg_data);
+      regs_data.push_back(reg->data);
 
       if (updated_index != nullptr)
       {
         // Remove old index
         std::string idx_folder =
             this->indexes_path + updated_index->name + "/" + old_value + "/";
-        std::string idx_path = idx_folder + reg.path().filename().string();
+        std::string idx_path = idx_folder + filename;
         remove(idx_path.c_str());
         if (fs::is_empty(fs::path(idx_folder)))
           remove(idx_folder.c_str());
-        std::cout << "removed " << idx_path << "\n";
 
         // Add new index
         std::string new_idx_folder = this->indexes_path + updated_index->name +
-                                     "/" + reg_data[update_column_pos] + "/";
+                                     "/" + reg->data[update_column_pos] + "/";
         mkdir(new_idx_folder.c_str(), S_IRWXU);
-        std::cout << "made folder " << new_idx_folder << "\n";
 
-        std::ofstream new_idx(new_idx_folder + reg.path().filename().string());
+        std::ofstream new_idx(new_idx_folder + filename);
         new_idx.close();
-        std::cout << "made reg " << new_idx_folder
-                  << reg.path().filename().string() << "\n";
       }
     }
   }
 
-  for (const auto& path : regs_to_update_path)
-    remove(path.c_str());
+  for (const auto& filename : regs_to_update_filename)
+    remove((this->regs_path + filename).c_str());
 
   // Reinsert regs with updated values
   for (const auto& reg : regs_data)
   {
     // Create filename
-    std::string reg_file = regs_to_update_path[&reg - &regs_data[0]];
+    std::string reg_file =
+        this->regs_path + regs_to_update_filename[&reg - &regs_data[0]];
 
     std::ofstream updated_reg(reg_file);
     for (const auto& data : reg)
@@ -602,7 +577,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
     updated_reg.close();
   }
 
-  std::cout << "Updated " << regs_to_update_path.size() << " rows.\n";
+  std::cout << "Updated " << regs_to_update_filename.size() << " rows.\n";
   return 1;
 }
 // TODO: ONLY ALLOW 1 COLUMN TO BE AFFECTED AT THE TIME BY UPDATE
@@ -706,6 +681,8 @@ bool Table::create_index(std::string column)
 
   if (this->columns->at(column_pos)->type.data_type != hsql::DataType::INT)
     throw DBException{INDEX_NOT_INT};
+
+  this->indexes->push_back(new Index(column));
 
   // TODO: add support for other datatypes
   // Create tree
