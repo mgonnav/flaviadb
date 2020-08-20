@@ -1,5 +1,5 @@
 #include "printutils.hh"
-#include "where.hh"
+#include "Where.hh"
 
 namespace ft = ftools;
 namespace fs = std::filesystem;
@@ -11,7 +11,7 @@ Table::Table(std::string name)
   loadPaths();
   checkTableExists();
   load_metadata();
-  this->registers = new std::map<std::string, Register*>();
+  this->registers = new std::map<std::string, RegisterData>();
 
   this->reg_count = ft::getRegCount(this->name);
 
@@ -59,8 +59,8 @@ void Table::loadStoredRegisters()
       reg_data.push_back(data);
     }
 
-    this->registers->insert(std::make_pair<std::string, Register*>(
-        reg.path().filename().string(), new Register(reg_data)));
+    this->registers->insert(std::make_pair<std::string, RegisterData>(
+        reg.path().filename(), RegisterData(reg_data)));
   }
 }
 
@@ -74,7 +74,7 @@ Table::Table(std::string name, std::vector<hsql::ColumnDefinition*>* cols)
 
   this->columns = cols;
   this->reg_size = calculateRegSize();
-  this->registers = new std::map<std::string, Register*>();
+  this->registers = new std::map<std::string, RegisterData>();
 
   // Create medata.dat file for table
   // and fill it with table's name & cols info
@@ -205,7 +205,7 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
 {
   fs::path reg_file;
   std::string filename;
-  Register* inserted_reg = nullptr;
+  RegisterData inserted_reg{};
 
   if (stmt->columns != nullptr)
   {
@@ -288,9 +288,9 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       new_reg << "\t";
     }
     this->reg_count++;
-    this->registers->insert(std::make_pair<std::string, Register*>(
+    this->registers->insert(std::make_pair<std::string, RegisterData>(
         std::to_string(this->reg_count) + ".sqlito",
-        new Register(new_reg_data)));
+        RegisterData(new_reg_data)));
     inserted_reg =
         this->registers->at(std::to_string(this->reg_count) + ".sqlito");
     new_reg.close();
@@ -307,8 +307,8 @@ bool Table::insert_record(const hsql::InsertStatement* stmt)
       {
         if (index->name == std::string(col->name))
         {
-          std::string idx_folder = this->indexes_path + index->name + "/" +
-                                   inserted_reg->data.at(i) + "/";
+          std::string idx_folder =
+              this->indexes_path + index->name + "/" + inserted_reg.at(i) + "/";
 
           mkdir(idx_folder.c_str(), S_IRWXU);
 
@@ -327,9 +327,11 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
 {
   // Check WHERE clause correctness
   int where_column_pos;
-  hsql::ColumnType* column_type;
-  if (!valid_where(stmt->whereClause, &where_column_pos, &column_type, this))
+  hsql::DataType column_data_type;
+  if (!valid_where(stmt->whereClause, &where_column_pos, &column_data_type,
+                   this))
     return 0;
+  auto where = Where::get(stmt->whereClause, column_data_type);
 
   std::set<std::string> tmp;
   std::vector<size_t> fields_width;
@@ -441,10 +443,9 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
 
   // COLLECT DATA FROM ALL REGS
   std::vector<std::vector<std::string>> regs_data;
-  for (const auto& reg_pair : *this->registers)
+  for (const auto& [filename, reg_data] : *this->registers)
   {
-    std::vector<std::string> reg_data(stmt->selectList->size(), "");
-    const auto reg = reg_pair.second;
+    std::vector<std::string> requested_data(stmt->selectList->size(), "");
     bool satisfies_where = 1;
     for (size_t i = 0; i < this->columns->size(); i++)
     {
@@ -452,10 +453,10 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
       auto field_pos = std::find(requested_columns_order.begin(),
                                  requested_columns_order.end(), i);
 
-      std::string data = reg->data.at(i);
+      std::string data = reg_data.at(i);
       // When we reach desired column, set flag
       if (i == where_column_pos && stmt->whereClause != nullptr)
-        if (!compare_where(column_type, data, stmt->whereClause))
+        if (!where->compare(data))
         {
           satisfies_where = 0;
           break;
@@ -466,7 +467,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
       {
         auto current_req_field =
             std::distance(requested_columns_order.begin(), field_pos);
-        reg_data[current_req_field] = data;
+        requested_data[current_req_field] = data;
         // If data witdth is larger than current field_width,
         // make it the new field_width
         if (fields_width[current_req_field] < data.size() + 2)
@@ -475,7 +476,7 @@ bool Table::show_records(const hsql::SelectStatement* stmt) const
     }
 
     if (satisfies_where)
-      regs_data.push_back(reg_data);
+      regs_data.push_back(requested_data);
   }
 
   pu::print_select_result(stmt->selectList, &regs_data, &fields_width);
@@ -487,9 +488,10 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
 {
   // Check WHERE clause correctness
   int where_column_pos;
-  hsql::ColumnType* column_type;
-  if (!valid_where(stmt->where, &where_column_pos, &column_type, this))
+  hsql::DataType column_data_type;
+  if (!valid_where(stmt->where, &where_column_pos, &column_data_type, this))
     return 0;
+  auto where = Where::get(stmt->where, column_data_type);
 
   // Check UPDATE SET column exists
   bool column_exists = 0;
@@ -524,21 +526,19 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
   std::vector<std::string> regs_to_update_filename;
   std::vector<std::vector<std::string>> regs_data;
 
-  for (const auto& reg_pair : *this->registers)
+  for (auto& [filename, reg_data] : *this->registers)
   {
-    auto filename = reg_pair.first;
-    auto reg = reg_pair.second;
-    if (compare_where(column_type, reg->data.at(where_column_pos), stmt->where))
+    if (where->compare(reg_data.at(where_column_pos)))
     {
       regs_to_update_filename.push_back(filename);
-      std::string old_value = reg->data[update_column_pos];
+      std::string old_value = reg_data[update_column_pos];
       if (stmt->updates->at(0)->value->type == hsql::kExprLiteralString)
-        reg->data[update_column_pos] = stmt->updates->at(0)->value->name;
+        reg_data[update_column_pos] = stmt->updates->at(0)->value->name;
       else
-        reg->data[update_column_pos] =
+        reg_data[update_column_pos] =
             std::to_string(stmt->updates->at(0)->value->ival);
 
-      regs_data.push_back(reg->data);
+      regs_data.push_back(reg_data);
 
       if (updated_index != nullptr)
       {
@@ -552,7 +552,7 @@ bool Table::update_records(const hsql::UpdateStatement* stmt)
 
         // Add new index
         std::string new_idx_folder = this->indexes_path + updated_index->name +
-                                     "/" + reg->data[update_column_pos] + "/";
+                                     "/" + reg_data[update_column_pos] + "/";
         mkdir(new_idx_folder.c_str(), S_IRWXU);
 
         std::ofstream new_idx(new_idx_folder + filename);
@@ -586,18 +586,16 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
 {
   // Check WHERE clause correctness
   int where_column_pos;
-  hsql::ColumnType* column_type;
-  if (!valid_where(stmt->expr, &where_column_pos, &column_type, this))
+  hsql::DataType column_data_type;
+  if (!valid_where(stmt->expr, &where_column_pos, &column_data_type, this))
     return 0;
+  auto where = Where::get(stmt->expr, column_data_type);
 
   std::vector<std::string> regs_to_delete_filename;
 
-  for (auto reg_pair : *this->registers)
+  for (auto [filename, reg_data] : *this->registers)
   {
-    auto filename = reg_pair.first;
-    auto reg_data = reg_pair.second->data;
-
-    if (compare_where(column_type, reg_data[where_column_pos], stmt->expr))
+    if (where->compare(reg_data[where_column_pos]))
     {
       regs_to_delete_filename.push_back(filename);
       for (const auto& index : *this->indexes)
@@ -610,8 +608,7 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
             std::string indexed_reg_folder =
                 this->indexes_path + index->name + "/" + reg_data[i] + "/";
 
-            std::string indexed_reg_path =
-                indexed_reg_folder + filename;
+            std::string indexed_reg_path = indexed_reg_folder + filename;
 
             remove(indexed_reg_path.c_str());
             if (fs::is_empty(fs::path(indexed_reg_folder)))
@@ -622,7 +619,8 @@ bool Table::delete_records(const hsql::DeleteStatement* stmt)
     }
   }
 
-  for (const auto& filename : regs_to_delete_filename) {
+  for (const auto& filename : regs_to_delete_filename)
+  {
     this->registers->erase(filename);
     remove((this->regs_path + filename).c_str());
   }

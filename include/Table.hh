@@ -2,8 +2,6 @@
 
 #include "DBException.hh"
 #include "Index.hh"
-#include "Register.hh"
-#include "Table.hh"
 #include "filestruct.hh"
 #include <algorithm>    // find
 #include <filesystem>
@@ -15,6 +13,7 @@
 #include <vector>
 
 #define DATE_FORMAT "%d-%m-%Y"
+typedef std::vector<std::string> RegisterData;
 
 struct Table
 {
@@ -27,7 +26,7 @@ struct Table
   std::string regs_path;
   std::string metadata_path;
   std::string indexes_path;
-  std::map<std::string, Register*>* registers;
+  std::map<std::string, RegisterData>* registers;
   std::vector<hsql::ColumnDefinition*>* columns;
   std::vector<Index*>* indexes;
   int reg_size;
