@@ -165,13 +165,13 @@ TEST(InsertRecordTest)
   auto inserted_register =
       tbl->registers->at(getFilenameWithExtension(tbl->reg_count));
 
-  auto inserted_register_id = inserted_register->data.at(0);
+  auto inserted_register_id = inserted_register.at(0);
   ASSERT_STREQ("333", inserted_register_id);
 
-  auto inserted_register_name = inserted_register->data.at(1);
+  auto inserted_register_name = inserted_register.at(1);
   ASSERT_STREQ("testName", inserted_register_name);
 
-  auto inserted_register_date = inserted_register->data.at(2);
+  auto inserted_register_date = inserted_register.at(2);
   ASSERT_STREQ("07-07-2001", inserted_register_date);
 
   string filename = getFilenameWithExtension(tbl->reg_count);
@@ -200,15 +200,15 @@ TEST(UpdateRecordsTest)
   vector<string> stored_data{};
   readFromFileTo(stored_data, getFilePath(*tbl, tbl->reg_count));
 
-  auto updated_register_id = updated_register->data.at(0);
+  auto updated_register_id = updated_register.at(0);
   ASSERT_STREQ("777", updated_register_id);
   ASSERT_STREQ(stored_data.at(0), updated_register_id);
 
-  auto updated_register_name = updated_register->data.at(1);
+  auto updated_register_name = updated_register.at(1);
   ASSERT_STREQ("testName", updated_register_name);
   ASSERT_STREQ(stored_data.at(1), updated_register_name);
 
-  auto updated_register_date = updated_register->data.at(2);
+  auto updated_register_date = updated_register.at(2);
   ASSERT_STREQ("07-07-2001", updated_register_date);
   ASSERT_STREQ(stored_data.at(2), updated_register_date);
 }
@@ -334,5 +334,3 @@ TEST(InsertRegisterToIndexedTableTest)
 
   dropIfExists("indexedTable");
 }
-
-TEST_MAIN();

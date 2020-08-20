@@ -19,9 +19,37 @@ expectFailure() {
   fi
 }
 
-bin/tests
-RET=$?
-expectSuccess "Table Test"
+TEST_ALL=bin/tests
+TABLE_TEST=bin/table
+DBEXCPT_TEST=bin/dbexception
+WHERE_TEST=bin/where
 
-rm bin/tests
+if [[ -f "$TEST_ALL" ]]; then
+  bin/tests
+  RET=$?
+  expectSuccess "All Tests"
+  rm bin/tests
+fi
+
+if [[ -f "$TABLE_TEST" ]]; then
+  bin/table
+  RET=$?
+  expectSuccess "Table Test"
+  rm bin/table
+fi
+
+if [[ -f "$DBEXCPT_TEST" ]]; then
+  bin/dbexception
+  RET=$?
+  expectSuccess "DBException Test"
+  rm bin/dbexception
+fi
+
+if [[ -f "$WHERE_TEST" ]]; then
+  bin/where
+  RET=$?
+  expectSuccess "Where Test"
+  rm bin/where
+fi
+
 exit $RET
