@@ -131,7 +131,7 @@ void print_tables_list(std::vector<std::string>& tables)
   std::cout << "\n";
 }
 
-void print_table_desc(Table* table)
+void print_table_desc(std::unique_ptr<Table> table)
 {
   std::vector<size_t> fields_width;
   fields_width.push_back(8);    // Size of "Column" + 2

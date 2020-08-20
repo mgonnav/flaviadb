@@ -22,5 +22,5 @@ void print_select_result(std::vector<hsql::Expr*>* fields,
 
 void print_tables_list(std::vector<std::string>& tables);
 
-void print_table_desc(Table* table);
+void print_table_desc(std::unique_ptr<Table> table);
 }    // namespace printUtils

@@ -54,16 +54,15 @@ int main()
           {
           case hsql::kStmtSelect:
           {
-            hsql::SelectStatement* select_stmt =
-                (hsql::SelectStatement*)statement;
+            auto select_stmt = (hsql::SelectStatement*)statement;
 
             if (select_stmt->fromTable != nullptr)
             {
               try
               {
-                Table* stored_tbl = new Table(select_stmt->fromTable->name);
+                auto stored_tbl =
+                    std::make_unique<Table>(select_stmt->fromTable->name);
                 stored_tbl->show_records(select_stmt);
-                delete stored_tbl;
               }
               catch (const DBException& e)
               {
@@ -77,14 +76,12 @@ int main()
           }
           case hsql::kStmtInsert:
           {
-            hsql::InsertStatement* insert_stmt =
-                (hsql::InsertStatement*)statement;
+            auto insert_stmt = (hsql::InsertStatement*)statement;
 
             try
             {
-              Table* stored_tbl = new Table(insert_stmt->tableName);
+              auto stored_tbl = std::make_unique<Table>(insert_stmt->tableName);
               stored_tbl->insert_record(insert_stmt);
-              delete stored_tbl;
             }
             catch (const DBException& e)
             {
@@ -95,14 +92,13 @@ int main()
           }
           case hsql::kStmtUpdate:
           {
-            hsql::UpdateStatement* update_stmt =
-                (hsql::UpdateStatement*)statement;
+            auto update_stmt = (hsql::UpdateStatement*)statement;
 
             try
             {
-              Table* stored_tbl = new Table(update_stmt->table->name);
+              auto stored_tbl =
+                  std::make_unique<Table>(update_stmt->table->name);
               stored_tbl->update_records(update_stmt);
-              delete stored_tbl;
             }
             catch (const DBException& e)
             {
@@ -113,14 +109,12 @@ int main()
           }
           case hsql::kStmtDelete:
           {
-            hsql::DeleteStatement* delete_stmt =
-                (hsql::DeleteStatement*)statement;
+            auto delete_stmt = (hsql::DeleteStatement*)statement;
 
             try
             {
-              Table* stored_tbl = new Table(delete_stmt->tableName);
+              auto stored_tbl = std::make_unique<Table>(delete_stmt->tableName);
               stored_tbl->delete_records(delete_stmt);
-              delete stored_tbl;
             }
             catch (const DBException& e)
             {
@@ -131,17 +125,15 @@ int main()
           }
           case hsql::kStmtCreate:
           {
-            hsql::CreateStatement* create_stmt =
-                (hsql::CreateStatement*)statement;
+            auto create_stmt = (hsql::CreateStatement*)statement;
             std::string table_path = ft::getTablePath(create_stmt->tableName);
 
             if (create_stmt->type == hsql::kCreateTable)
             {
               if (!ft::dirExists(table_path))
               {
-                Table* table =
-                    new Table(create_stmt->tableName, create_stmt->columns);
-                delete table;
+                auto table = std::make_unique<Table>(create_stmt->tableName,
+                                                     create_stmt->columns);
               }
               else
                 fprintf(stderr, "Table named %s already exists!\n",
@@ -151,9 +143,9 @@ int main()
             {
               try
               {
-                Table* stored_tbl = new Table(create_stmt->tableName);
+                auto stored_tbl =
+                    std::make_unique<Table>(create_stmt->tableName);
                 stored_tbl->create_index(create_stmt->columns->at(0)->name);
-                delete stored_tbl;
               }
               catch (const DBException& e)
               {
@@ -165,13 +157,12 @@ int main()
           }
           case hsql::kStmtDrop:
           {
-            hsql::DropStatement* drop_stmt = (hsql::DropStatement*)statement;
+            auto drop_stmt = (hsql::DropStatement*)statement;
 
             try
             {
-              Table* stored_tbl = new Table(drop_stmt->name);
+              auto stored_tbl = std::make_unique<Table>(drop_stmt->name);
               stored_tbl->drop_table();
-              delete stored_tbl;
             }
             catch (const DBException& e)
             {
@@ -182,7 +173,7 @@ int main()
           }
           case hsql::kStmtShow:    // DESCRIBE
           {
-            hsql::ShowStatement* show_stmt = (hsql::ShowStatement*)statement;
+            auto show_stmt = (hsql::ShowStatement*)statement;
 
             if (show_stmt->type == hsql::ShowType::kShowTables)
             {
@@ -195,9 +186,8 @@ int main()
             {
               try
               {
-                Table* stored_tbl = new Table(show_stmt->name);
-                pu::print_table_desc(stored_tbl);
-                delete stored_tbl;
+                auto stored_tbl = std::make_unique<Table>(show_stmt->name);
+                pu::print_table_desc(std::move(stored_tbl));
               }
               catch (const DBException& e)
               {
