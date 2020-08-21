@@ -1,3 +1,8 @@
+#include "Processor.hh"
+#include "Table.hh"
+#include "filestruct.hh"
+#include "flaviadb_definitions.hh"
+#include "printutils.hh"
 #include <filesystem>
 #include <fstream>                  // ifstream, ofstream
 #include <hsql/SQLParser.h>         // Include SQL Parser
@@ -5,14 +10,11 @@
 #include <iostream>
 #include <sys/stat.h>    // stat, mkdir
 
-#include "Table.hh"
-#include "filestruct.hh"
-#include "flaviadb_definitions.hh"
-#include "printutils.hh"
-
 namespace fs = std::filesystem;
 namespace ft = ftools;
 namespace pu = printUtils;
+
+std::map<std::string, std::unique_ptr<Table>> tables;
 
 int main()
 {
@@ -48,18 +50,22 @@ int main()
         {
         case hsql::kStmtSelect:
         {
-          hsql::SelectStatement* select_stmt =
-              (hsql::SelectStatement*)statement;
+          auto select_stmt = (hsql::SelectStatement*)statement;
 
           if (select_stmt->fromTable != nullptr)
           {
             try
             {
-              Table* stored_tbl = new Table(select_stmt->fromTable->name);
-              stored_tbl->show_records(select_stmt);
-              delete stored_tbl;
+              auto table_name{select_stmt->fromTable->name};
+              auto it = tables.find(table_name);
+              if (it == tables.end())
+              {
+                auto [it, inserted] = tables.insert(
+                    {table_name, std::make_unique<Table>(table_name)});
+              }
+              Processor::show_records(select_stmt, it->second);
             }
-            catch (std::invalid_argument& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -71,16 +77,20 @@ int main()
         }
         case hsql::kStmtInsert:
         {
-          hsql::InsertStatement* insert_stmt =
-              (hsql::InsertStatement*)statement;
+          auto insert_stmt = (hsql::InsertStatement*)statement;
 
           try
           {
-            Table* stored_tbl = new Table(insert_stmt->tableName);
-            stored_tbl->insert_record(insert_stmt);
-            delete stored_tbl;
+            auto it = tables.find(insert_stmt->tableName);
+            if (it == tables.end())
+            {
+              auto [it, inserted] = tables.insert(
+                  {insert_stmt->tableName,
+                   std::make_unique<Table>(insert_stmt->tableName)});
+            }
+            Processor::insert_record(insert_stmt, it->second);
           }
-          catch (std::invalid_argument& e)
+          catch (const DBException& e)
           {
             std::cout << e.what() << "\n";
           }
@@ -89,16 +99,20 @@ int main()
         }
         case hsql::kStmtUpdate:
         {
-          hsql::UpdateStatement* update_stmt =
-              (hsql::UpdateStatement*)statement;
+          auto update_stmt = (hsql::UpdateStatement*)statement;
 
           try
           {
-            Table* stored_tbl = new Table(update_stmt->table->name);
-            stored_tbl->update_records(update_stmt);
-            delete stored_tbl;
+            auto it = tables.find(update_stmt->table->name);
+            if (it == tables.end())
+            {
+              auto [it, inserted] = tables.insert(
+                  {update_stmt->table->name,
+                   std::make_unique<Table>(update_stmt->table->name)});
+            }
+            Processor::update_records(update_stmt, it->second);
           }
-          catch (std::invalid_argument& e)
+          catch (const DBException& e)
           {
             std::cout << e.what() << "\n";
           }
@@ -107,16 +121,20 @@ int main()
         }
         case hsql::kStmtDelete:
         {
-          hsql::DeleteStatement* delete_stmt =
-              (hsql::DeleteStatement*)statement;
+          auto delete_stmt = (hsql::DeleteStatement*)statement;
 
           try
           {
-            Table* stored_tbl = new Table(delete_stmt->tableName);
-            stored_tbl->delete_records(delete_stmt);
-            delete stored_tbl;
+            auto it = tables.find(delete_stmt->tableName);
+            if (it == tables.end())
+            {
+              auto [it, inserted] = tables.insert(
+                  {delete_stmt->tableName,
+                   std::make_unique<Table>(delete_stmt->tableName)});
+            }
+            Processor::delete_records(delete_stmt, it->second);
           }
-          catch (std::invalid_argument& e)
+          catch (const DBException& e)
           {
             std::cout << e.what() << "\n";
           }
@@ -125,17 +143,16 @@ int main()
         }
         case hsql::kStmtCreate:
         {
-          hsql::CreateStatement* create_stmt =
-              (hsql::CreateStatement*)statement;
-          char* table_path = ft::getTablePath(create_stmt->tableName);
+          auto create_stmt = (hsql::CreateStatement*)statement;
+          std::string table_path = ft::getTablePath(create_stmt->tableName);
 
           if (create_stmt->type == hsql::kCreateTable)
           {
             if (!ft::dirExists(table_path))
             {
-              Table* table =
-                  new Table(create_stmt->tableName, create_stmt->columns);
-              delete table;
+              tables.insert({create_stmt->tableName,
+                             std::make_unique<Table>(create_stmt->tableName,
+                                                     create_stmt->columns)});
             }
             else
               fprintf(stderr, "Table named %s already exists!\n",
@@ -145,11 +162,17 @@ int main()
           {
             try
             {
-              Table* stored_tbl = new Table(create_stmt->tableName);
-              stored_tbl->create_index(create_stmt->columns->at(0)->name);
-              delete stored_tbl;
+              auto it = tables.find(create_stmt->tableName);
+              if (it == tables.end())
+              {
+                auto [it, inserted] = tables.insert(
+                    {create_stmt->tableName,
+                     std::make_unique<Table>(create_stmt->tableName)});
+              }
+              Processor::create_index(create_stmt->columns->at(0)->name,
+                                      it->second);
             }
-            catch (std::invalid_argument& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }
@@ -159,15 +182,19 @@ int main()
         }
         case hsql::kStmtDrop:
         {
-          hsql::DropStatement* drop_stmt = (hsql::DropStatement*)statement;
+          auto drop_stmt = (hsql::DropStatement*)statement;
 
           try
           {
-            Table* stored_tbl = new Table(drop_stmt->name);
-            stored_tbl->drop_table();
-            delete stored_tbl;
+            auto it = tables.find(drop_stmt->name);
+            if (it == tables.end())
+            {
+              auto [it, inserted] = tables.insert(
+                  {drop_stmt->name, std::make_unique<Table>(drop_stmt->name)});
+            }
+            Processor::drop_table(it->second);
           }
-          catch (std::invalid_argument& e)
+          catch (const DBException& e)
           {
             std::cout << e.what() << "\n";
           }
@@ -176,7 +203,7 @@ int main()
         }
         case hsql::kStmtShow:    // DESCRIBE
         {
-          hsql::ShowStatement* show_stmt = (hsql::ShowStatement*)statement;
+          auto show_stmt = (hsql::ShowStatement*)statement;
 
           if (show_stmt->type == hsql::ShowType::kShowTables)
           {
@@ -189,11 +216,10 @@ int main()
           {
             try
             {
-              Table* stored_tbl = new Table(show_stmt->name);
-              pu::print_table_desc(stored_tbl);
-              delete stored_tbl;
+              auto stored_tbl = std::make_unique<Table>(show_stmt->name);
+              pu::print_table_desc(std::move(stored_tbl));
             }
-            catch (std::invalid_argument& e)
+            catch (const DBException& e)
             {
               std::cout << e.what() << "\n";
             }

@@ -46,4 +46,5 @@ public:
 };
 
 bool valid_where(const hsql::Expr* where, int* where_column_pos,
-                 hsql::DataType* column_data_type, const Table* table);
+                 hsql::DataType* column_data_type,
+                 std::unique_ptr<Table> const& table);

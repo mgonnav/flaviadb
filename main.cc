@@ -1,4 +1,5 @@
 #include "DBException.hh"
+#include "Processor.hh"
 #include "Table.hh"
 #include "filestruct.hh"
 #include "flaviadb_definitions.hh"
@@ -8,6 +9,7 @@
 #include <hsql/SQLParser.h>         // Include SQL Parser
 #include <hsql/util/sqlhelper.h>    // Contains printing utilities
 #include <iostream>
+#include <map>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <sys/stat.h>    // stat, mkdir
@@ -15,6 +17,8 @@
 namespace fs = std::filesystem;
 namespace ft = ftools;
 namespace pu = printUtils;
+
+std::map<std::string, std::unique_ptr<Table>> tables;
 
 int main()
 {
@@ -60,9 +64,14 @@ int main()
             {
               try
               {
-                auto stored_tbl =
-                    std::make_unique<Table>(select_stmt->fromTable->name);
-                stored_tbl->show_records(select_stmt);
+                auto table_name{select_stmt->fromTable->name};
+                auto it = tables.find(table_name);
+                if (it == tables.end())
+                {
+                  auto [it, inserted] = tables.insert(
+                      {table_name, std::make_unique<Table>(table_name)});
+                }
+                Processor::show_records(select_stmt, it->second);
               }
               catch (const DBException& e)
               {
@@ -80,8 +89,14 @@ int main()
 
             try
             {
-              auto stored_tbl = std::make_unique<Table>(insert_stmt->tableName);
-              stored_tbl->insert_record(insert_stmt);
+              auto it = tables.find(insert_stmt->tableName);
+              if (it == tables.end())
+              {
+                auto [it, inserted] = tables.insert(
+                    {insert_stmt->tableName,
+                     std::make_unique<Table>(insert_stmt->tableName)});
+              }
+              Processor::insert_record(insert_stmt, it->second);
             }
             catch (const DBException& e)
             {
@@ -96,9 +111,14 @@ int main()
 
             try
             {
-              auto stored_tbl =
-                  std::make_unique<Table>(update_stmt->table->name);
-              stored_tbl->update_records(update_stmt);
+              auto it = tables.find(update_stmt->table->name);
+              if (it == tables.end())
+              {
+                auto [it, inserted] = tables.insert(
+                    {update_stmt->table->name,
+                     std::make_unique<Table>(update_stmt->table->name)});
+              }
+              Processor::update_records(update_stmt, it->second);
             }
             catch (const DBException& e)
             {
@@ -113,8 +133,14 @@ int main()
 
             try
             {
-              auto stored_tbl = std::make_unique<Table>(delete_stmt->tableName);
-              stored_tbl->delete_records(delete_stmt);
+              auto it = tables.find(delete_stmt->tableName);
+              if (it == tables.end())
+              {
+                auto [it, inserted] = tables.insert(
+                    {delete_stmt->tableName,
+                     std::make_unique<Table>(delete_stmt->tableName)});
+              }
+              Processor::delete_records(delete_stmt, it->second);
             }
             catch (const DBException& e)
             {
@@ -132,8 +158,9 @@ int main()
             {
               if (!ft::dirExists(table_path))
               {
-                auto table = std::make_unique<Table>(create_stmt->tableName,
-                                                     create_stmt->columns);
+                tables.insert({create_stmt->tableName,
+                               std::make_unique<Table>(create_stmt->tableName,
+                                                       create_stmt->columns)});
               }
               else
                 fprintf(stderr, "Table named %s already exists!\n",
@@ -143,9 +170,15 @@ int main()
             {
               try
               {
-                auto stored_tbl =
-                    std::make_unique<Table>(create_stmt->tableName);
-                stored_tbl->create_index(create_stmt->columns->at(0)->name);
+                auto it = tables.find(create_stmt->tableName);
+                if (it == tables.end())
+                {
+                  auto [it, inserted] = tables.insert(
+                      {create_stmt->tableName,
+                       std::make_unique<Table>(create_stmt->tableName)});
+                }
+                Processor::create_index(create_stmt->columns->at(0)->name,
+                                        it->second);
               }
               catch (const DBException& e)
               {
@@ -161,8 +194,14 @@ int main()
 
             try
             {
-              auto stored_tbl = std::make_unique<Table>(drop_stmt->name);
-              stored_tbl->drop_table();
+              auto it = tables.find(drop_stmt->name);
+              if (it == tables.end())
+              {
+                auto [it, inserted] =
+                    tables.insert({drop_stmt->name,
+                                   std::make_unique<Table>(drop_stmt->name)});
+              }
+              Processor::drop_table(it->second);
             }
             catch (const DBException& e)
             {

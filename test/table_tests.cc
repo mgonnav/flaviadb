@@ -1,6 +1,7 @@
 #include "thirdparty/microtest/microtest.h"
 
 #include "Table.hh"
+#include "Processor.hh"
 #include "filestruct.hh"
 #include <fstream>
 #include <hsql/SQLParser.h>
@@ -14,6 +15,7 @@ void assertPathsExist(Table const& table);
 void assertPathsDontExist(Table const& table);
 void dropIfExists(string tableName);
 void readFromFileTo(vector<string>& values, string filename);
+
 string getFilenameWithExtension(string filename)
 {
   return filename + ".sqlito";
@@ -69,7 +71,7 @@ TEST(CreateAndDropTableTest)
 
   ASSERT_EQ(0, tbl->reg_count);
 
-  tbl->drop_table();
+  Processor::drop_table(tbl);
   assertPathsDontExist(*tbl);
 }
 
@@ -85,7 +87,7 @@ void dropIfExists(string tableName)
   }
 
   if (tbl != nullptr)
-    tbl->drop_table();
+    Processor::drop_table(tbl);
 }
 
 void assertPathsDontExist(Table const& table)
@@ -159,7 +161,7 @@ TEST(InsertRecordTest)
   auto stmt = (hsql::InsertStatement*)result->getStatement(0);
 
   int expected_new_reg_count = tbl->registers->size() + 1;
-  tbl->insert_record(stmt);
+  Processor::insert_record(stmt, tbl);
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
 
   auto inserted_register =
@@ -188,7 +190,7 @@ TEST(UpdateRecordsTest)
   auto stmt = (hsql::UpdateStatement*)result->getStatement(0);
 
   int expected_new_reg_count = tbl->registers->size();
-  tbl->update_records(stmt);
+  Processor::update_records(stmt, tbl);
 
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
 
@@ -239,7 +241,7 @@ TEST(DeleteRecordsTest)
   auto stmt = (hsql::DeleteStatement*)result->getStatement(0);
 
   int expected_new_reg_count = tbl->registers->size() - 1;
-  tbl->delete_records(stmt);
+  Processor::delete_records(stmt, tbl);
 
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
 
@@ -259,7 +261,7 @@ TEST(CreateIndexOnEmptyTableTest)
 
   auto tbl = make_unique<Table>("indexedEmptyTable", stmt->columns);
 
-  tbl->create_index("id");
+  Processor::create_index("id", tbl);
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/"));
 
   dropIfExists("indexedEmptyTable");
@@ -286,9 +288,9 @@ TEST(CreateIndexOnPopulatedTableTest)
       result);
 
   for (const auto& stmt : result->getStatements())
-    tbl->insert_record((hsql::InsertStatement*)stmt);
+    Processor::insert_record((hsql::InsertStatement*)stmt, tbl);
 
-  tbl->create_index("id");
+  Processor::create_index("id", tbl);
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/"));
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "1/"));
   ASSERT_TRUE(ft::fileExists(tbl->indexes_path + "id/" + "1/" + "1.sqlito"));
@@ -320,9 +322,9 @@ TEST(InsertRegisterToIndexedTableTest)
       "'03-01-2000');",
       result);
 
-  tbl->create_index("id");
+  Processor::create_index("id", tbl);
   for (const auto& stmt : result->getStatements())
-    tbl->insert_record((hsql::InsertStatement*)stmt);
+    Processor::insert_record((hsql::InsertStatement*)stmt, tbl);
 
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/"));
   ASSERT_TRUE(ft::dirExists(tbl->indexes_path + "id/" + "1/"));

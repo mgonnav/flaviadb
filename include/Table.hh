@@ -32,13 +32,6 @@ struct Table
   int reg_size;
   int reg_count;
 
-  bool insert_record(const hsql::InsertStatement* stmt);
-  bool show_records(const hsql::SelectStatement* stmt) const;
-  bool update_records(const hsql::UpdateStatement* stmt);
-  bool delete_records(const hsql::DeleteStatement* stmt);
-  bool drop_table();
-  bool create_index(std::string column);
-
 private:
   bool load_metadata();
 
