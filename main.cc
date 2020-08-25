@@ -18,7 +18,7 @@ namespace fs = std::filesystem;
 namespace ft = ftools;
 namespace pu = printUtils;
 
-std::map<std::string, std::unique_ptr<Table>> tables;
+std::map<std::string, std::unique_ptr<Table>> tables{};
 
 int main()
 {
@@ -65,13 +65,14 @@ int main()
               try
               {
                 auto table_name{select_stmt->fromTable->name};
-                auto it = tables.find(table_name);
-                if (it == tables.end())
+                auto table_it = tables.find(table_name);
+                if (table_it == tables.end())
                 {
-                  auto [it, inserted] = tables.insert(
+                  auto [pair, inserted] = tables.insert(
                       {table_name, std::make_unique<Table>(table_name)});
+                  table_it = pair;
                 }
-                Processor::show_records(select_stmt, it->second);
+                Processor::show_records(select_stmt, table_it->second);
               }
               catch (const DBException& e)
               {
@@ -89,14 +90,15 @@ int main()
 
             try
             {
-              auto it = tables.find(insert_stmt->tableName);
-              if (it == tables.end())
+              auto table_it = tables.find(insert_stmt->tableName);
+              if (table_it == tables.end())
               {
-                auto [it, inserted] = tables.insert(
+                auto [pair, inserted] = tables.insert(
                     {insert_stmt->tableName,
                      std::make_unique<Table>(insert_stmt->tableName)});
+                table_it = pair;
               }
-              Processor::insert_record(insert_stmt, it->second);
+              Processor::insert_record(insert_stmt, table_it->second);
             }
             catch (const DBException& e)
             {
@@ -111,14 +113,15 @@ int main()
 
             try
             {
-              auto it = tables.find(update_stmt->table->name);
-              if (it == tables.end())
+              auto table_it = tables.find(update_stmt->table->name);
+              if (table_it == tables.end())
               {
-                auto [it, inserted] = tables.insert(
+                auto [pair, inserted] = tables.insert(
                     {update_stmt->table->name,
                      std::make_unique<Table>(update_stmt->table->name)});
+                table_it = pair;
               }
-              Processor::update_records(update_stmt, it->second);
+              Processor::update_records(update_stmt, table_it->second);
             }
             catch (const DBException& e)
             {
@@ -133,14 +136,15 @@ int main()
 
             try
             {
-              auto it = tables.find(delete_stmt->tableName);
-              if (it == tables.end())
+              auto table_it = tables.find(delete_stmt->tableName);
+              if (table_it == tables.end())
               {
-                auto [it, inserted] = tables.insert(
+                auto [pair, inserted] = tables.insert(
                     {delete_stmt->tableName,
                      std::make_unique<Table>(delete_stmt->tableName)});
+                table_it = pair;
               }
-              Processor::delete_records(delete_stmt, it->second);
+              Processor::delete_records(delete_stmt, table_it->second);
             }
             catch (const DBException& e)
             {
@@ -170,15 +174,16 @@ int main()
             {
               try
               {
-                auto it = tables.find(create_stmt->tableName);
-                if (it == tables.end())
+                auto table_it = tables.find(create_stmt->tableName);
+                if (table_it == tables.end())
                 {
-                  auto [it, inserted] = tables.insert(
+                  auto [pair, inserted] = tables.insert(
                       {create_stmt->tableName,
                        std::make_unique<Table>(create_stmt->tableName)});
+                  table_it = pair;
                 }
                 Processor::create_index(create_stmt->columns->at(0)->name,
-                                        it->second);
+                                        table_it->second);
               }
               catch (const DBException& e)
               {
@@ -194,14 +199,15 @@ int main()
 
             try
             {
-              auto it = tables.find(drop_stmt->name);
-              if (it == tables.end())
+              auto table_it = tables.find(drop_stmt->name);
+              if (table_it == tables.end())
               {
-                auto [it, inserted] =
+                auto [pair, inserted] =
                     tables.insert({drop_stmt->name,
                                    std::make_unique<Table>(drop_stmt->name)});
+                table_it = pair;
               }
-              Processor::drop_table(it->second);
+              Processor::drop_table(table_it->second);
             }
             catch (const DBException& e)
             {
@@ -225,8 +231,15 @@ int main()
             {
               try
               {
-                auto stored_tbl = std::make_unique<Table>(show_stmt->name);
-                pu::print_table_desc(std::move(stored_tbl));
+                auto table_it = tables.find(show_stmt->name);
+                if (table_it == tables.end())
+                {
+                  auto [pair, inserted] =
+                      tables.insert({show_stmt->name,
+                                     std::make_unique<Table>(show_stmt->name)});
+                  table_it = pair;
+                }
+                pu::print_table_desc(table_it->second);
               }
               catch (const DBException& e)
               {

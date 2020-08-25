@@ -7,6 +7,9 @@ namespace pu = printUtils;
 bool Processor::insert_record(const hsql::InsertStatement* stmt,
                               std::unique_ptr<Table> const& table)
 {
+  if (table->registers == nullptr)
+    table->loadStoredRegisters();
+
   fs::path reg_file;
   std::string filename;
   RegisterData inserted_reg{};
@@ -92,11 +95,9 @@ bool Processor::insert_record(const hsql::InsertStatement* stmt,
       new_reg << "\t";
     }
     table->reg_count++;
-    table->registers->insert(std::make_pair<std::string, RegisterData>(
-        std::to_string(table->reg_count) + ".sqlito",
-        RegisterData(new_reg_data)));
-    inserted_reg =
-        table->registers->at(std::to_string(table->reg_count) + ".sqlito");
+    table->registers->push_back({std::to_string(table->reg_count) + ".sqlito",
+                                 RegisterData(new_reg_data)});
+    inserted_reg = table->registers->back().second;
     new_reg.close();
   }
 
@@ -130,6 +131,9 @@ bool Processor::insert_record(const hsql::InsertStatement* stmt,
 bool Processor::show_records(const hsql::SelectStatement* stmt,
                              std::unique_ptr<Table> const& table)
 {
+  if (table->registers == nullptr)
+    table->loadStoredRegisters();
+
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::DataType column_data_type;
@@ -292,6 +296,9 @@ bool Processor::show_records(const hsql::SelectStatement* stmt,
 bool Processor::update_records(const hsql::UpdateStatement* stmt,
                                std::unique_ptr<Table> const& table)
 {
+  if (table->registers == nullptr)
+    table->loadStoredRegisters();
+
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::DataType column_data_type;
@@ -391,6 +398,9 @@ bool Processor::update_records(const hsql::UpdateStatement* stmt,
 bool Processor::delete_records(const hsql::DeleteStatement* stmt,
                                std::unique_ptr<Table> const& table)
 {
+  if (table->registers == nullptr)
+    table->loadStoredRegisters();
+
   // Check WHERE clause correctness
   int where_column_pos;
   hsql::DataType column_data_type;
@@ -400,8 +410,10 @@ bool Processor::delete_records(const hsql::DeleteStatement* stmt,
 
   std::vector<std::string> regs_to_delete_filename;
 
-  for (auto [filename, reg_data] : *table->registers)
+  for (auto it = table->registers->begin(); it != table->registers->end();)
   {
+    auto filename = it->first;
+    auto reg_data = it->second;
     if (where->compare(reg_data[where_column_pos]))
     {
       regs_to_delete_filename.push_back(filename);
@@ -423,14 +435,14 @@ bool Processor::delete_records(const hsql::DeleteStatement* stmt,
           }
         }
       }
+      it = table->registers->erase(it);
     }
+    else
+      ++it;
   }
 
   for (const auto& filename : regs_to_delete_filename)
-  {
-    table->registers->erase(filename);
     remove((table->regs_path + filename).c_str());
-  }
 
   std::cout << "Deleted " << regs_to_delete_filename.size() << " rows.\n";
   return 1;
@@ -450,8 +462,11 @@ bool Processor::drop_table(std::unique_ptr<Table> const& table)
 }
 
 bool Processor::create_index(std::string column,
-                         std::unique_ptr<Table> const& table)
+                             std::unique_ptr<Table> const& table)
 {
+  if (table->registers == nullptr)
+    table->loadStoredRegisters();
+
   // Check that the column actually exists in the table
   int column_pos;
   bool field_exists = 0;

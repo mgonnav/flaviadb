@@ -1,7 +1,7 @@
 #include "thirdparty/microtest/microtest.h"
 
-#include "Table.hh"
 #include "Processor.hh"
+#include "Table.hh"
 #include "filestruct.hh"
 #include <fstream>
 #include <hsql/SQLParser.h>
@@ -160,12 +160,16 @@ TEST(InsertRecordTest)
       "INSERT INTO testTable VALUES (333, 'testName', '07-07-2001');", result);
   auto stmt = (hsql::InsertStatement*)result->getStatement(0);
 
-  int expected_new_reg_count = tbl->registers->size() + 1;
+  int expected_new_reg_count = 1;
   Processor::insert_record(stmt, tbl);
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
 
   auto inserted_register =
-      tbl->registers->at(getFilenameWithExtension(tbl->reg_count));
+      find_if(tbl->registers->begin(), tbl->registers->end(),
+              [&tbl](const pair<string, RegisterData>& reg) {
+                return reg.first == getFilenameWithExtension(tbl->reg_count);
+              })
+          ->second;
 
   auto inserted_register_id = inserted_register.at(0);
   ASSERT_STREQ("333", inserted_register_id);
@@ -189,16 +193,24 @@ TEST(UpdateRecordsTest)
                          result);
   auto stmt = (hsql::UpdateStatement*)result->getStatement(0);
 
-  int expected_new_reg_count = tbl->registers->size();
+  int expected_unchanged_reg_count = 1;
   Processor::update_records(stmt, tbl);
 
-  ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
+  ASSERT_EQ(expected_unchanged_reg_count, tbl->registers->size());
 
-  auto it = tbl->registers->find(getFilenameWithExtension(tbl->reg_count));
+  auto it =
+      find_if(tbl->registers->begin(), tbl->registers->end(),
+              [&tbl](const pair<string, RegisterData>& reg) {
+                return reg.first == getFilenameWithExtension(tbl->reg_count);
+              });
   ASSERT_TRUE(it != tbl->registers->end());
 
   auto updated_register =
-      tbl->registers->at(getFilenameWithExtension(tbl->reg_count));
+      find_if(tbl->registers->begin(), tbl->registers->end(),
+              [&tbl](const pair<string, RegisterData>& reg) {
+                return reg.first == getFilenameWithExtension(tbl->reg_count);
+              })
+          ->second;
   vector<string> stored_data{};
   readFromFileTo(stored_data, getFilePath(*tbl, tbl->reg_count));
 
@@ -240,12 +252,16 @@ TEST(DeleteRecordsTest)
   hsql::SQLParser::parse("DELETE FROM testTable WHERE id = 777;", result);
   auto stmt = (hsql::DeleteStatement*)result->getStatement(0);
 
-  int expected_new_reg_count = tbl->registers->size() - 1;
+  int expected_new_reg_count = 0;
   Processor::delete_records(stmt, tbl);
 
   ASSERT_EQ(expected_new_reg_count, tbl->registers->size());
 
-  auto it = tbl->registers->find(getFilenameWithExtension(tbl->reg_count));
+  auto it =
+      find_if(tbl->registers->begin(), tbl->registers->end(),
+              [&tbl](const pair<string, RegisterData>& reg) {
+                return reg.first == getFilenameWithExtension(tbl->reg_count);
+              });
   ASSERT_TRUE(it == tbl->registers->end());
 }
 

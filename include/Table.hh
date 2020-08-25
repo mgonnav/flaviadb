@@ -8,6 +8,7 @@
 #include <fstream>
 #include <hsql/SQLParser.h>
 #include <iostream>
+#include <list>
 #include <map>
 #include <set>
 #include <vector>
@@ -26,7 +27,7 @@ struct Table
   std::string regs_path;
   std::string metadata_path;
   std::string indexes_path;
-  std::map<std::string, RegisterData>* registers;
+  std::unique_ptr<std::list<std::pair<std::string, RegisterData>>> registers;
   std::vector<hsql::ColumnDefinition*>* columns;
   std::vector<Index*>* indexes;
   int reg_size;
@@ -36,7 +37,7 @@ private:
   bool load_metadata();
 
   std::ifstream metadata_file;
-  void loadPaths();
+  void loadPaths(std::string const& name);
   void checkTableExists();
   void loadIndexes();
   void loadStoredRegisters();
@@ -49,4 +50,6 @@ private:
   void loadRegSize();
   void loadColumnData(hsql::ColumnDefinition*& column);
   hsql::ColumnType getColumnType();
+
+  friend class Processor;
 };
