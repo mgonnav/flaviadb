@@ -18,7 +18,7 @@ typedef std::vector<std::string> RegisterData;
 
 struct Table
 {
-  Table(std::string name);
+  explicit Table(std::string name);
   Table(std::string name, std::vector<hsql::ColumnDefinition*>* cols);
   ~Table();
 
@@ -27,7 +27,7 @@ struct Table
   std::string regs_path;
   std::string metadata_path;
   std::string indexes_path;
-  std::unique_ptr<std::list<std::pair<std::string, RegisterData>>> registers;
+  std::unique_ptr<std::list<std::pair<int, RegisterData>>> registers;
   std::vector<hsql::ColumnDefinition*>* columns;
   std::vector<Index*>* indexes;
   int reg_size;
@@ -37,6 +37,7 @@ private:
   bool load_metadata();
 
   std::ifstream metadata_file;
+  std::ifstream data_file;
   void loadPaths(std::string const& name);
   void checkTableExists();
   void loadIndexes();
@@ -50,6 +51,7 @@ private:
   void loadRegSize();
   void loadColumnData(hsql::ColumnDefinition*& column);
   hsql::ColumnType getColumnType();
+  void openDataFile();
 
   friend class Processor;
 };

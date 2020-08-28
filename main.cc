@@ -208,6 +208,7 @@ int main()
                 table_it = pair;
               }
               Processor::drop_table(table_it->second);
+              tables.erase(table_it);
             }
             catch (const DBException& e)
             {

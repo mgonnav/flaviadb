@@ -36,9 +36,9 @@ protected:
 
 public:
   explicit DBException(const ErrorCode& error_code);
-  explicit DBException(const ErrorCode& error_code,
+  DBException(const ErrorCode& error_code,
                        const std::string& error_table);
-  explicit DBException(const ErrorCode& error_code,
+  DBException(const ErrorCode& error_code,
                        const std::string& error_table,
                        const std::string& error_column);
   std::string formatErrorMessage();

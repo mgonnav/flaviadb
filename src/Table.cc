@@ -104,27 +104,30 @@ void Table::loadIndexes()
   }
 }
 
+void Table::openDataFile() { this->data_file.open(this->regs_path); }
+
 void Table::loadStoredRegisters()
 {
-  this->registers =
-      std::make_unique<std::list<std::pair<std::string, RegisterData>>>();
+  this->registers = std::make_unique<std::list<std::pair<int, RegisterData>>>();
+  this->openDataFile();
 
-  for (const auto& reg : fs::directory_iterator(this->regs_path))
+  std::string data;
+
+  while (this->data_file.eof() == 0)
   {
-    // Load data in file to reg_data
-    std::ifstream data_file(reg.path());
     std::vector<std::string> reg_data;
 
-    // Load each piece of data into reg_data
-    std::string data;
+    int start_pos_in_file = data_file.tellg() - data.size() - 1;
     for (size_t i = 0; i < this->columns->size(); i++)
     {
       getline(data_file, data, '\t');
       reg_data.push_back(data);
     }
-
-    this->registers->push_back({reg.path().filename(), RegisterData(reg_data)});
+    getline(data_file, data);
+    this->registers->push_back({start_pos_in_file, RegisterData(reg_data)});
   }
+
+  this->data_file.close();
 }
 
 Table::Table(std::string name, std::vector<hsql::ColumnDefinition*>* cols)
@@ -137,8 +140,7 @@ Table::Table(std::string name, std::vector<hsql::ColumnDefinition*>* cols)
 
   this->columns = cols;
   this->reg_size = calculateRegSize();
-  this->registers =
-      std::make_unique<std::list<std::pair<std::string, RegisterData>>>();
+  this->registers = std::make_unique<std::list<std::pair<int, RegisterData>>>();
 
   // Create medata.dat file for table
   // and fill it with table's name & cols info
@@ -154,13 +156,15 @@ Table::Table(std::string name, std::vector<hsql::ColumnDefinition*>* cols)
   wCount << 0;    // 0 regs when table is created
   wCount.close();
 
+  std::ofstream r(this->regs_path);
+  r.close();
+
   std::cout << "Table " << this->name << " was created successfully.\n";
 }
 
 void Table::createTableFolders()
 {
   ft::createFolder(this->path);
-  ft::createFolder(this->regs_path);
   ft::createFolder(this->indexes_path);
 }
 

@@ -40,7 +40,7 @@ std::string getTablePath(std::string const& tableName)
 
 std::string getRegistersPath(std::string const& tableName)
 {
-  return FLAVIADB_TEST_DB + tableName + "/registers/";
+  return FLAVIADB_TEST_DB + tableName + "/registers.sqlito";
 }
 
 std::string getIndexesPath(std::string const& tableName)

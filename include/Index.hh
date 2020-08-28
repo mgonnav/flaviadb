@@ -6,6 +6,6 @@ struct Index
 {
   std::string name;
 
-  Index(std::string name) : name(name) {}
+  explicit Index(std::string name) : name(name) {}
   ~Index() {}
 };
