@@ -33,3 +33,6 @@
 
 # VSCode debugger
 .vscode/
+
+# Build folder
+build/
