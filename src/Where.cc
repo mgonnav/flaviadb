@@ -11,7 +11,7 @@ Where* Where::get(hsql::Expr* const& where_clause, hsql::DataType data_type)
   case hsql::DataType::DATE:
     return new WhereDate(where_clause);
   default:
-    return nullptr;
+    return new NullWhere();
   }
 }
 
@@ -99,6 +99,13 @@ bool WhereDate::compare(std::string data)
   comparison_result = compareToDate(data);
 
   return compare_helper();
+}
+
+NullWhere::NullWhere(){}
+
+bool NullWhere::compare(std::string data)
+{
+  return true;
 }
 
 bool valid_where(const hsql::Expr* where, int* where_column_pos,

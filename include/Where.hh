@@ -10,10 +10,11 @@ class Where
 protected:
   hsql::OperatorType opType;
   int comparison_result;
+  bool compare_helper();
 
 public:
+  virtual ~Where() {}
   static Where* get(hsql::Expr* const& where_clause, hsql::DataType data_type);
-  bool compare_helper();
   virtual bool compare(std::string data) = 0;
 };
 
@@ -42,6 +43,13 @@ class WhereDate : public Where
 
 public:
   WhereDate(hsql::Expr* const& where_clause);
+  bool compare(std::string data);
+};
+
+class NullWhere : public Where
+{
+  public:
+  NullWhere();
   bool compare(std::string data);
 };
 
